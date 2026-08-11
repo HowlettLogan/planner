@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>스터디 플레너</title>
+  <title>TimeBlocking Planner</title>
   <style>
     :root {
       --bg: oklch(0.97 0.006 95);
@@ -247,6 +247,11 @@
       color: var(--blue);
     }
 
+    .add-trigger.small {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+
     .add-row {
       display: none;
       gap: 8px;
@@ -440,21 +445,32 @@
       color: var(--blue);
     }
 
-    .time-input {
+    .time-input-wrap {
+      display: flex;
+      align-items: center;
+      flex: none;
+    }
+
+    .time-part-input {
       font: 600 13px ui-monospace, Menlo, monospace;
       color: var(--muted);
-      width: 56px;
+      width: 20px;
       border: none;
       background: transparent;
       outline: none;
       border-radius: 4px;
-      padding: 2px 4px;
-      flex: none;
+      padding: 2px 1px;
+      text-align: center;
     }
 
-    .time-input:focus {
+    .time-part-input:focus {
       background: var(--blue-bg);
       color: var(--blue);
+    }
+
+    .time-colon {
+      font: 600 13px ui-monospace, Menlo, monospace;
+      color: var(--muted);
     }
 
     .schedule-box {
@@ -503,7 +519,7 @@
     }
 
     .task-input {
-      font: 13px system-ui, sans-serif;
+      font: 600 13px system-ui, sans-serif;
       border: none;
       outline: none;
       background: transparent;
@@ -523,6 +539,12 @@
     .schedule-box .remove:hover {
       opacity: 1;
       color: var(--blue);
+    }
+
+    .schedule-box .remove.confirm {
+      opacity: 1;
+      color: #d64545;
+      font-size: 11px;
     }
 
     .settings-btn {
@@ -1354,27 +1376,6 @@
       cursor: grabbing;
     }
 
-    .schedule-row-wrap {
-      outline: 2px dashed transparent;
-      outline-offset: 4px;
-      border-radius: 10px;
-      transition: outline-color 0.15s;
-    }
-
-    .schedule-row-wrap.drag-over {
-      outline-color: var(--blue);
-    }
-
-    @keyframes schedule-flash {
-      0% { background-color: var(--blue-bg); }
-      100% { background-color: transparent; }
-    }
-
-    .schedule-row-wrap.flash {
-      animation: schedule-flash 0.7s ease-out;
-      border-radius: 10px;
-    }
-
     .habit-checkbox {
       width: 20px;
       height: 20px;
@@ -1619,7 +1620,10 @@
             </div>
           </div>
           <div id="schedule-items" style="display:flex; flex-direction:column; gap:8px;"></div>
-          <div class="add-trigger" id="schedule-add-trigger">+ 일정 추가</div>
+          <div style="display:flex; gap:8px; margin-top:2px;">
+            <div class="add-trigger small" id="schedule-sort-btn" style="flex:none; padding-left:16px; padding-right:16px;">정렬</div>
+            <div class="add-trigger small" id="schedule-add-trigger" style="flex:1;">+ 일정 추가</div>
+          </div>
         </div>
 
         <!-- 학습 자료 진행률: 자리만 -->
@@ -2033,12 +2037,20 @@
       renderSchedule();
     }
 
-    let draggedScheduleIndex = null;
-
     // 24시 다음은 25시가 아니라 1시로 순환
     function nextHour(hour) {
       const next = hour + 1;
       return next > 24 ? 1 : next;
+    }
+
+    // 정렬용 기준값 계산 — 00:00~04:00은 하루를 마무리하는 새벽 시간으로 보고 맨 뒤로 보냄
+    function scheduleSortKey(timeStr) {
+      const parts = (timeStr || "00:00").split(":");
+      let h = parseInt(parts[0], 10);
+      if (isNaN(h)) h = 0;
+      const m = parts[1] || "00";
+      if (h < 5) h += 24; // 0~4시는 24~28시로 취급해서 23시보다 뒤로 가게 함
+      return pad2(h) + ":" + m;
     }
 
     // 마지막 칸 시간(예: "23:00") 다음 시각을 계산해서 새 칸 이름표로 씀
@@ -2047,40 +2059,6 @@
       let hour = parseInt(parts[0], 10);
       if (isNaN(hour)) hour = 23;
       return pad2(nextHour(hour)) + ":00";
-    }
-
-    // time(시간)은 각 자리에 고정한 채, 내용(텍스트/완료/카테고리)만 밀어넣는 방식으로 이동시킴
-    function moveScheduleContent(sourceIndex, targetIndex) {
-      const contents = schedule.map(function (item) {
-        return {
-          text: item.text,
-          status: item.status,
-          category: item.category,
-          subcategory: item.subcategory
-        };
-      });
-
-      const movedContent = contents[sourceIndex];
-
-      if (sourceIndex < targetIndex) {
-        // 나중 시간으로 옮길 때: source와 target 사이 내용들이 한 칸씩 당겨져서 빈자리를 채움
-        for (let i = sourceIndex; i < targetIndex; i++) {
-          contents[i] = contents[i + 1];
-        }
-      } else {
-        // 이른 시간으로 옮길 때: target과 source 사이 내용들이 한 칸씩 밀림
-        for (let i = sourceIndex; i > targetIndex; i--) {
-          contents[i] = contents[i - 1];
-        }
-      }
-      contents[targetIndex] = movedContent;
-
-      schedule.forEach(function (item, i) {
-        item.text = contents[i].text;
-        item.status = contents[i].status;
-        item.category = contents[i].category;
-        item.subcategory = contents[i].subcategory;
-      });
     }
 
     function renderSchedule() {
@@ -2093,57 +2071,70 @@
         row.style.gap = "8px";
         row.className = "schedule-row-wrap";
 
-        row.addEventListener("dragover", function (event) {
-          event.preventDefault();
-          row.classList.add("drag-over");
-        });
+        const timeWrap = document.createElement("div");
+        timeWrap.className = "time-input-wrap";
 
-        row.addEventListener("dragleave", function () {
-          row.classList.remove("drag-over");
-        });
+        const timeParts = (item.time || "").split(":");
 
-        row.addEventListener("drop", function (event) {
-          event.preventDefault();
-          row.classList.remove("drag-over");
-          if (draggedScheduleIndex === null || draggedScheduleIndex === index) return;
+        // 값만 저장 (재정렬/재렌더링은 안 함) — 시→분 자동 이동 중에 화면이 흔들리지 않게
+        function commitTimeSilent() {
+          let h = parseInt(hourInput.value, 10);
+          let m = parseInt(minuteInput.value, 10);
+          if (isNaN(h) || h < 0) h = 0;
+          if (isNaN(m) || m < 0) m = 0;
+          if (m > 59) m = 59;
+          schedule[index].time = pad2(h) + ":" + pad2(m);
+          saveScheduleFor(selectedDate, schedule);
+        }
 
-          const rangeStart = Math.min(draggedScheduleIndex, index);
-          const rangeEnd = Math.max(draggedScheduleIndex, index);
-
-          moveScheduleContent(draggedScheduleIndex, index);
-          draggedScheduleIndex = null;
+        // 시/분을 다 마쳤을 때 최종 확정 (정렬 + 화면 갱신까지)
+        function commitTime() {
+          let h = parseInt(hourInput.value, 10);
+          let m = parseInt(minuteInput.value, 10);
+          if (isNaN(h) || h < 0) h = 0;
+          if (isNaN(m) || m < 0) m = 0;
+          if (m > 59) m = 59;
+          hourInput.value = pad2(h);
+          minuteInput.value = pad2(m);
+          schedule[index].time = pad2(h) + ":" + pad2(m);
           saveScheduleFor(selectedDate, schedule);
           renderSchedule();
+        }
 
-          // 옮겨진 범위 전체에 잠깐 반짝이는 효과를 줘서 "이동했다"는 걸 눈에 보이게 함
-          const rows = scheduleList.querySelectorAll(".schedule-row-wrap");
-          for (let i = rangeStart; i <= rangeEnd && i < rows.length; i++) {
-            rows[i].classList.add("flash");
+        const hourInput = document.createElement("input");
+        hourInput.className = "time-part-input";
+        hourInput.inputMode = "numeric";
+        hourInput.maxLength = 2;
+        hourInput.value = timeParts[0] || "00";
+        hourInput.addEventListener("input", function () {
+          hourInput.value = hourInput.value.replace(/[^0-9]/g, "").slice(0, 2);
+          if (hourInput.value.length === 2) minuteInput.focus();
+        });
+        hourInput.addEventListener("change", commitTimeSilent);
+
+        const colon = document.createElement("span");
+        colon.className = "time-colon";
+        colon.textContent = ":";
+
+        const minuteInput = document.createElement("input");
+        minuteInput.className = "time-part-input";
+        minuteInput.inputMode = "numeric";
+        minuteInput.maxLength = 2;
+        minuteInput.value = timeParts[1] || "00";
+        minuteInput.addEventListener("input", function () {
+          minuteInput.value = minuteInput.value.replace(/[^0-9]/g, "").slice(0, 2);
+        });
+        minuteInput.addEventListener("change", commitTime);
+        minuteInput.addEventListener("keydown", function (event) {
+          // 분칸에서 백스페이스로 지우다가 비면, 시간칸으로 자연스럽게 돌아감
+          if (event.key === "Backspace" && minuteInput.value === "") {
+            hourInput.focus();
           }
         });
 
-        const dragHandle = document.createElement("span");
-        dragHandle.className = "drag-handle";
-        dragHandle.textContent = "⠿";
-        dragHandle.draggable = true;
-        dragHandle.addEventListener("dragstart", function (event) {
-          draggedScheduleIndex = index;
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setDragImage(row, 10, 10);
-        });
-        row.appendChild(dragHandle);
-
-        const timeInput = document.createElement("input");
-        timeInput.className = "time-input";
-        timeInput.value = item.time;
-        timeInput.addEventListener("change", function () {
-          schedule[index].time = timeInput.value;
-          schedule.sort(function (a, b) {
-            return a.time.localeCompare(b.time);
-          });
-          saveScheduleFor(selectedDate, schedule);
-          renderSchedule();
-        });
+        timeWrap.appendChild(hourInput);
+        timeWrap.appendChild(colon);
+        timeWrap.appendChild(minuteInput);
 
         const box = document.createElement("div");
         box.className = "schedule-box";
@@ -2179,19 +2170,46 @@
           saveScheduleFor(selectedDate, schedule);
           renderWeek();
         });
+        textInput.addEventListener("keydown", function (event) {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+
+          // 지금 입력 내용을 먼저 저장
+          schedule[index].text = textInput.value;
+          saveScheduleFor(selectedDate, schedule);
+          renderWeek();
+
+          // 바로 다음 시간대 칸으로 포커스 이동 (내용은 안 지움)
+          const taskInputs = scheduleList.querySelectorAll(".task-input");
+          const nextInput = taskInputs[index + 1];
+          if (nextInput) {
+            nextInput.focus();
+            const len = nextInput.value.length;
+            nextInput.setSelectionRange(len, len);
+          }
+        });
 
         const removeBtn = document.createElement("span");
         removeBtn.className = "remove";
         removeBtn.textContent = "×";
         removeBtn.addEventListener("click", function () {
-          deleteSchedule(index);
+          if (removeBtn.classList.contains("confirm")) {
+            deleteSchedule(index);
+            return;
+          }
+          removeBtn.classList.add("confirm");
+          removeBtn.textContent = "삭제?";
+          setTimeout(function () {
+            removeBtn.classList.remove("confirm");
+            removeBtn.textContent = "×";
+          }, 2500);
         });
 
         box.appendChild(categoryPicker);
         box.appendChild(check);
         box.appendChild(textInput);
         box.appendChild(removeBtn);
-        row.appendChild(timeInput);
+        row.appendChild(timeWrap);
         row.appendChild(box);
         scheduleList.appendChild(row);
       });
@@ -2215,23 +2233,63 @@
       });
     });
 
-    // 일정 하나 = 1시간 블록이라는 전제로, 대분류(item.category)별 개수를 셈
-    // (소분류는 나중에 따로 비교할 예정이라 여기선 대분류만 집계)
+    // 같은 하루 일정 안에서, 각 항목이 "다음 일정까지" 실제로 몇 분짜리였는지 계산
+    // 맨 마지막 항목은 다음 일정이 없으니, 그 다음 정각(예: 23:20이면 24:00)까지로 계산
+    function getItemDurations(scheduleItems) {
+      const sorted = scheduleItems.slice().sort(function (a, b) {
+        return scheduleSortKey(a.time).localeCompare(scheduleSortKey(b.time));
+      });
+
+      return sorted.map(function (item, i) {
+        const next = sorted[i + 1];
+        const startMin = timeToExtendedMinutes(item.time);
+
+        if (!next) {
+          // 다음 정각까지의 남은 분 (이미 정각이면 그다음 정각까지 꽉 채운 60분으로 봄)
+          let minutes = Math.ceil(startMin / 60) * 60 - startMin;
+          if (minutes === 0) minutes = 60;
+          return { item: item, minutes: minutes };
+        }
+
+        const minutes = timeToExtendedMinutes(next.time) - startMin;
+        return { item: item, minutes: minutes > 0 ? minutes : 0 };
+      });
+    }
+
+    // scheduleSortKey와 같은 기준(0~4시는 24~28시로 취급)으로 "자정부터 몇 분째인지" 계산
+    function timeToExtendedMinutes(timeStr) {
+      const parts = (timeStr || "00:00").split(":");
+      let h = parseInt(parts[0], 10);
+      if (isNaN(h)) h = 0;
+      const m = parseInt(parts[1], 10) || 0;
+      if (h < 5) h += 24;
+      return h * 60 + m;
+    }
+
+    // 소수점 시간을 화면에 보기 좋게(소수점 1자리까지만) 표시
+    function formatHours(h) {
+      const rounded = Math.round(h * 10) / 10;
+      return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1);
+    }
+
+    // 대분류(item.category)별로, 다음 일정까지의 실제 시간(분→시간)을 합산
+    // 체크(완료)된 항목만 집계 — 체크 안 된 건 예정일 뿐 아직 수행된 게 아니므로 제외
     function tallyCategoryHours(scheduleItems) {
       const totals = {};
-      scheduleItems.forEach(function (item) {
-        if (!item.category) return;
-        totals[item.category] = (totals[item.category] || 0) + 1;
+      getItemDurations(scheduleItems).forEach(function (d) {
+        if (!d.item.category || d.minutes === 0 || d.item.status !== "done") return;
+        totals[d.item.category] = (totals[d.item.category] || 0) + d.minutes / 60;
       });
       return totals;
     }
 
-    // 특정 대분류 안에서 소분류별 시간을 셈 (하위 카테고리별 통계에서 사용)
+    // 특정 대분류 안에서 소분류별 실제 시간을 합산 (하위 카테고리별 통계에서 사용)
+    // 마찬가지로 체크(완료)된 항목만 집계
     function tallySubcategoryHours(scheduleItems, categoryName) {
       const totals = {};
-      scheduleItems.forEach(function (item) {
-        if (item.category !== categoryName || !item.subcategory) return;
-        totals[item.subcategory] = (totals[item.subcategory] || 0) + 1;
+      getItemDurations(scheduleItems).forEach(function (d) {
+        if (d.item.category !== categoryName || !d.item.subcategory || d.minutes === 0 || d.item.status !== "done") return;
+        totals[d.item.subcategory] = (totals[d.item.subcategory] || 0) + d.minutes / 60;
       });
       return totals;
     }
@@ -2345,7 +2403,7 @@
             segment.style.width = (hours / totalHours * 100) + "%";
             segment.style.background = cat.color;
             segment.style.color = "#000";
-            segment.textContent = hours + "h";
+            segment.textContent = formatHours(hours) + "h";
             bar.appendChild(segment);
           });
         }
@@ -2497,9 +2555,8 @@
       let hours = 0;
 
       function countIn(date) {
-        loadScheduleFor(date).forEach(function (item) {
-          if (item.category === categoryName && item.subcategory === subName) hours++;
-        });
+        const totals = tallySubcategoryHours(loadScheduleFor(date), categoryName);
+        hours += totals[subName] || 0;
       }
 
       if (subcatStatsViewMode === "weekly") {
@@ -2577,7 +2634,7 @@
           segment.style.width = "100%";
           segment.style.background = cat.color;
           segment.style.color = "#000";
-          segment.textContent = s.hours + "h";
+          segment.textContent = formatHours(s.hours) + "h";
           bar.appendChild(segment);
         }
 
@@ -2766,19 +2823,11 @@
 
     function deleteSchedule(index) {
       const dateAtDeletion = new Date(selectedDate);
-      // 되돌리기용으로 삭제 직전 전체 상태를 통째로 복사해둠 (시간까지 다 바뀌므로)
+      // 되돌리기용으로 삭제 직전 전체 상태를 통째로 복사해둠
       const beforeState = JSON.parse(JSON.stringify(schedule));
 
-      const removedTime = schedule[index].time;
+      // 해당 시간대 박스(시간 + 내용) 자체를 통째로 삭제. 다른 칸들의 시간은 안 건드림
       schedule.splice(index, 1);
-
-      // 삭제된 자리부터 이후 항목들의 시간을 한 칸씩 당겨서 다시 채움
-      let hour = parseInt((removedTime || "").split(":")[0], 10);
-      if (isNaN(hour)) hour = 0;
-      for (let i = index; i < schedule.length; i++) {
-        schedule[i].time = pad2(hour) + ":00";
-        hour = nextHour(hour);
-      }
 
       saveScheduleFor(selectedDate, schedule);
       renderSchedule();
@@ -2821,6 +2870,15 @@
         scheduleResetBtn.classList.remove("confirm");
         scheduleResetBtn.textContent = "초기화";
       }, 2500);
+    });
+
+    const scheduleSortBtn = document.getElementById("schedule-sort-btn");
+    scheduleSortBtn.addEventListener("click", function () {
+      schedule.sort(function (a, b) {
+        return scheduleSortKey(a.time).localeCompare(scheduleSortKey(b.time));
+      });
+      saveScheduleFor(selectedDate, schedule);
+      renderSchedule();
     });
 
     renderWeek();
