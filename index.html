@@ -150,8 +150,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 4px;
-      background: var(--blue-bg);
-      color: var(--blue);
+      background: #A3BE8C30;
+      color: #A3BE8C;
       font: 600 10px system-ui, sans-serif;
       border-radius: 6px;
       padding: 3px 6px;
@@ -1432,6 +1432,63 @@
       gap: 12px;
     }
 
+    .habit-history-item {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    .habit-history-item:last-child {
+      border-bottom: none;
+    }
+
+    .habit-history-item-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 2px;
+      cursor: pointer;
+    }
+
+    .habit-history-dot {
+      width: 10px;
+      height: 10px;
+      min-width: 10px;
+      border-radius: 50%;
+    }
+
+    .habit-history-name {
+      flex: 1;
+      font: 700 13px system-ui, sans-serif;
+      color: var(--text);
+    }
+
+    .habit-history-count {
+      font: 12px system-ui, sans-serif;
+      color: var(--muted);
+    }
+
+    .habit-history-arrow {
+      color: var(--muted);
+      font-size: 11px;
+      transition: transform 0.15s;
+      flex: none;
+    }
+
+    .habit-history-item.open .habit-history-arrow {
+      transform: rotate(90deg);
+    }
+
+    .habit-history-item-body {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      padding: 4px 2px 14px;
+    }
+
+    .habit-history-item.open .habit-history-item-body {
+      display: flex;
+    }
+
     .habit-heatmap {
       flex: 1;
       display: flex;
@@ -1569,12 +1626,8 @@
       </div>
 
       <div class="section-title">하루 전환 기준</div>
-      <div class="segmented" id="cutoff-mode-segment">
-        <button type="button" class="segment-btn" data-value="dynamic">마지막 일정</button>
-        <button type="button" class="segment-btn" data-value="fixed">고정 시간</button>
-      </div>
-      <div class="setting-hint" id="cutoff-mode-hint"></div>
-      <div class="time-picker" id="cutoff-time-picker" style="display:none;">
+      <div class="setting-hint">이 시각을 기준으로 하루가 전환돼요.</div>
+      <div class="time-picker" id="cutoff-time-picker">
         <div class="segmented small" id="ampm-segment">
           <button type="button" class="segment-btn" data-value="AM">오전</button>
           <button type="button" class="segment-btn" data-value="PM">오후</button>
@@ -1589,6 +1642,16 @@
       <div class="section-title">삭제된 습관</div>
       <div class="setting-hint">시간 제한 없이 언제든 복구할 수 있어요.</div>
       <div id="habit-trash-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="habit-history-overlay">
+    <div class="modal-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title" style="font-size:16px;">기록</div>
+        <span class="modal-close" id="habit-history-close">×</span>
+      </div>
+      <div id="habit-history-list" style="display:flex; flex-direction:column; gap:4px; margin-top:10px;"></div>
     </div>
   </div>
 
@@ -1637,7 +1700,10 @@
       <div class="side-panels">
         <!-- 습관·스트릭: 진짜 작동 -->
         <div class="card">
-          <div class="section-title">습관 · 스트릭</div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div class="section-title">습관 · 스트릭</div>
+            <span class="habit-remove" id="habit-history-btn" style="opacity:0.7;">기록</span>
+          </div>
           <div id="habit-list"></div>
           <div class="add-trigger" id="habit-add-trigger">+ 습관 추가</div>
         </div>
@@ -1796,33 +1862,15 @@
       const calendarToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const candidateYesterday = addDays(calendarToday, -1);
 
-      const yesterdaySchedule = loadScheduleFor(candidateYesterday);
+      // appSettings 변수는 스크립트 훨씬 아래(설정 섹션)에서 선언되므로,
+      // 여기서는 변수를 직접 참조하지 않고 localStorage에서 바로 읽어와 TDZ 문제를 피함
+      const settings = JSON.parse(localStorage.getItem("appSettings")) || { cutoffTime: "04:00" };
 
-      let lastEarlyMinutes = null;
-      yesterdaySchedule.forEach(function (item) {
-        const parts = (item.time || "").split(":");
-        if (parts.length !== 2) return;
-        const hour = parseInt(parts[0], 10);
-        const minute = parseInt(parts[1], 10);
-        if (isNaN(hour) || isNaN(minute)) return;
-        if (hour < 6) {
-          const totalMinutes = hour * 60 + minute;
-          if (lastEarlyMinutes === null || totalMinutes > lastEarlyMinutes) {
-            lastEarlyMinutes = totalMinutes;
-          }
-        }
-      });
-
-      let cutoff;
-      if (lastEarlyMinutes === null) {
-        cutoff = calendarToday; // 새벽 일정이 없으면 자정에 바로 전환
-      } else {
-        // 일정 하나는 "시작 시각부터 1시간"이므로, 마지막 일정이 끝나는 시각 + 10분이 진짜 마감 시각
-        const blockMinutes = 60;
-        cutoff = new Date(calendarToday);
-        cutoff.setMinutes(cutoff.getMinutes() + lastEarlyMinutes + blockMinutes + 10);
-      }
-
+      const parts = (settings.cutoffTime || "04:00").split(":");
+      const cutoffHour = parseInt(parts[0], 10) || 0;
+      const cutoffMinute = parseInt(parts[1], 10) || 0;
+      const cutoff = new Date(calendarToday);
+      cutoff.setHours(cutoffHour, cutoffMinute, 0, 0);
       return now < cutoff ? candidateYesterday : calendarToday;
     }
 
@@ -2610,8 +2658,9 @@
         return;
       }
 
-      // 막대 길이 기준: 기본 30시간, 단 그보다 큰 값이 있으면 그 값을 기준(100%)으로 삼음
-      const maxHours = Math.max.apply(null, hoursBySubcategory.map(function (s) { return s.hours; }).concat([30]));
+      // 막대 길이 기준: 보기 단위에 따라 기본값을 다르게 둠 (그보다 큰 값이 있으면 그 값을 기준(100%)으로 삼음)
+      const baseHours = subcatStatsViewMode === "monthly" ? 30 : subcatStatsViewMode === "weekly" ? 18 : 5;
+      const maxHours = Math.max.apply(null, hoursBySubcategory.map(function (s) { return s.hours; }).concat([baseHours]));
 
       hoursBySubcategory.forEach(function (s) {
         const rowEl = document.createElement("div");
@@ -2650,6 +2699,8 @@
     const subcategoryLineLegend = document.getElementById("subcategory-line-legend");
     // 소분류는 대분류 색을 그대로 쓰기 때문에, 선 종류(점선 패턴)로 구분함
     const lineDashPatterns = ["none", "6,4", "2,3", "8,3,2,3", "1,2"];
+    // 범례 클릭으로 껐다 켠 소분류들을 기억해둠 (이름 기준)
+    let hiddenLineSubcats = {};
 
     function getSubcatTrendRows(tallyFn) {
       if (subcatStatsViewMode === "weekly") {
@@ -2710,6 +2761,7 @@
       let maxHours = 1;
       rows.forEach(function (row) {
         cat.subcategories.forEach(function (subName) {
+          if (hiddenLineSubcats[subName]) return;
           const hours = row.totals[subName] || 0;
           if (hours > maxHours) maxHours = hours;
         });
@@ -2737,6 +2789,8 @@
       svg.appendChild(axis);
 
       cat.subcategories.forEach(function (subName, subIndex) {
+        if (hiddenLineSubcats[subName]) return;
+
         const points = rows.map(function (row, i) {
           return xAt(i) + "," + yAt(row.totals[subName] || 0);
         }).join(" ");
@@ -2774,12 +2828,17 @@
       subcategoryLineChart.appendChild(svg);
 
       cat.subcategories.forEach(function (subName, subIndex) {
+        const isHidden = !!hiddenLineSubcats[subName];
+
         const item = document.createElement("div");
         item.style.display = "flex";
         item.style.alignItems = "center";
         item.style.gap = "6px";
         item.style.font = "12px system-ui, sans-serif";
         item.style.color = "var(--muted)";
+        item.style.cursor = "pointer";
+        item.style.userSelect = "none";
+        item.style.opacity = isHidden ? "0.35" : "1";
 
         const sampleSvg = document.createElementNS(svgNS, "svg");
         sampleSvg.setAttribute("viewBox", "0 0 24 8");
@@ -2797,9 +2856,14 @@
 
         const label = document.createElement("span");
         label.textContent = subName;
+        if (isHidden) label.style.textDecoration = "line-through";
 
         item.appendChild(sampleSvg);
         item.appendChild(label);
+        item.addEventListener("click", function () {
+          hiddenLineSubcats[subName] = !hiddenLineSubcats[subName];
+          renderSubcategoryLineChart(cat);
+        });
         subcategoryLineLegend.appendChild(item);
       });
     }
@@ -2890,6 +2954,8 @@
 
     // 새 습관을 추가할 때 이 배열을 순서대로 돌려가며 자동으로 색을 배정함
     const habitColorPalette = ["#3b6fd6", "#3f9142", "#c0862a", "#a1477a", "#3a8f8f", "#8a5fd6"];
+    // 학습 자료는 습관보다 차분한 파스텔 톤으로 구분
+    const materialColorPalette = ["#8FBCBB", "#88C0D0", "#81A1C1", "#7195B5", "#6389A9"];
 
     // ---- 삭제된 습관 휴지통 (시간 제한 없이 복구 가능) ----
     const habitTrashList = document.getElementById("habit-trash-list");
@@ -2974,6 +3040,142 @@
     }
 
     // 오늘(또는 오늘 아직 안했으면 어제)부터 거꾸로 훑으면서 끊기지 않은 날짜 수를 셈
+    // ---- 습관 기록 보기 모달 (습관을 누르면 그 아래로 펼쳐지는 아코디언 방식) ----
+    const habitHistoryBtn = document.getElementById("habit-history-btn");
+    const habitHistoryOverlay = document.getElementById("habit-history-overlay");
+    const habitHistoryClose = document.getElementById("habit-history-close");
+    const habitHistoryList = document.getElementById("habit-history-list");
+
+    habitHistoryBtn.addEventListener("click", function () {
+      renderHabitHistoryList();
+      habitHistoryOverlay.classList.add("visible");
+    });
+
+    habitHistoryClose.addEventListener("click", function () {
+      habitHistoryOverlay.classList.remove("visible");
+    });
+
+    habitHistoryOverlay.addEventListener("click", function (event) {
+      if (event.target === habitHistoryOverlay) {
+        habitHistoryOverlay.classList.remove("visible");
+      }
+    });
+
+    // 특정 연/월 하나짜리 미니 히트맵을 만듦 (펼친 습관 아래에 여러 달을 쌓아 보여줄 때 사용)
+    function buildMonthHeatmap(habit, year, month) {
+      const wrap = document.createElement("div");
+
+      const label = document.createElement("div");
+      label.className = "setting-hint";
+      label.style.marginBottom = "6px";
+      label.textContent = year + "년 " + (month + 1) + "월";
+
+      const grid = document.createElement("div");
+      grid.className = "habit-heatmap";
+      grid.style.flex = "none";
+
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(year, month, d);
+        const cell = document.createElement("div");
+        cell.className = "heatmap-cell";
+        if (habit.completedDates.indexOf(formatDateKey(cellDate)) !== -1) {
+          cell.style.background = habit.color;
+        }
+        grid.appendChild(cell);
+      }
+
+      wrap.appendChild(label);
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    // 습관 하나의 시작 이후 모든 달을 최신순으로 쌓아서 컨테이너에 채워 넣음
+    function fillHabitMonths(container, habit) {
+      container.innerHTML = "";
+
+      let cursorYear = today.getFullYear();
+      let cursorMonth = today.getMonth();
+
+      let earliestYear = cursorYear;
+      let earliestMonth = cursorMonth;
+      if (habit.completedDates.length > 0) {
+        const earliestKey = habit.completedDates.slice().sort()[0];
+        const parts = earliestKey.split("-");
+        earliestYear = parseInt(parts[0], 10);
+        earliestMonth = parseInt(parts[1], 10) - 1;
+      }
+
+      while (cursorYear > earliestYear || (cursorYear === earliestYear && cursorMonth >= earliestMonth)) {
+        container.appendChild(buildMonthHeatmap(habit, cursorYear, cursorMonth));
+        cursorMonth--;
+        if (cursorMonth < 0) {
+          cursorMonth = 11;
+          cursorYear--;
+        }
+      }
+    }
+
+    // 습관들을 쭉 나열하고, 각 습관을 누르면 그 아래로 펼쳐지는 아코디언 목록을 만듦
+    function renderHabitHistoryList() {
+      habitHistoryList.innerHTML = "";
+
+      if (habits.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "setting-hint";
+        empty.textContent = "습관을 먼저 추가해주세요.";
+        habitHistoryList.appendChild(empty);
+        return;
+      }
+
+      habits.forEach(function (habit) {
+        const item = document.createElement("div");
+        item.className = "habit-history-item";
+
+        const header = document.createElement("div");
+        header.className = "habit-history-item-header";
+
+        const dot = document.createElement("span");
+        dot.className = "habit-history-dot";
+        dot.style.background = habit.color;
+
+        const name = document.createElement("span");
+        name.className = "habit-history-name";
+        name.textContent = habit.name;
+
+        const count = document.createElement("span");
+        count.className = "habit-history-count";
+        count.textContent = "총 " + habit.completedDates.length + "일";
+
+        const arrow = document.createElement("span");
+        arrow.className = "habit-history-arrow";
+        arrow.textContent = "▶";
+
+        header.appendChild(dot);
+        header.appendChild(name);
+        header.appendChild(count);
+        header.appendChild(arrow);
+
+        const body = document.createElement("div");
+        body.className = "habit-history-item-body";
+        let loaded = false;
+
+        header.addEventListener("click", function () {
+          const willOpen = !item.classList.contains("open");
+          item.classList.toggle("open", willOpen);
+          // 처음 펼칠 때만 그 습관의 월별 기록을 채워 넣음 (매번 다시 그릴 필요 없게)
+          if (willOpen && !loaded) {
+            fillHabitMonths(body, habit);
+            loaded = true;
+          }
+        });
+
+        item.appendChild(header);
+        item.appendChild(body);
+        habitHistoryList.appendChild(item);
+      });
+    }
+
     function calculateHabitStreak(habit) {
       let cursor = new Date(today);
       if (habit.completedDates.indexOf(formatDateKey(cursor)) === -1) {
@@ -3171,7 +3373,8 @@
     const materialAddTrigger = document.getElementById("material-add-trigger");
 
     materialAddTrigger.addEventListener("click", function () {
-      materials.push({ title: "", totalPages: 0, currentPage: 0, dailyLog: {}, unit: "쪽" });
+      const color = materialColorPalette[materials.length % materialColorPalette.length];
+      materials.push({ title: "", totalPages: 0, currentPage: 0, dailyLog: {}, unit: "쪽", color: color });
       saveMaterials();
       renderMaterials();
       const titleInputs = materialsList.querySelectorAll(".material-title");
@@ -3198,6 +3401,8 @@
 
       materials.forEach(function (material, index) {
         const unit = material.unit || "쪽";
+        // 기존에 저장된 자료(색이 없던 것들)는 자동으로 색을 하나 배정
+        const color = material.color || materialColorPalette[index % materialColorPalette.length];
 
         const item = document.createElement("div");
         item.className = "material-item";
@@ -3278,6 +3483,7 @@
         track.className = "material-progress-track";
         const fill = document.createElement("div");
         fill.className = "material-progress-fill";
+        fill.style.background = color;
         const percent = material.totalPages > 0
           ? Math.min(100, Math.round(material.currentPage / material.totalPages * 100))
           : 0;
@@ -3352,6 +3558,8 @@
         const logBtn = document.createElement("button");
         logBtn.className = "material-log-btn";
         logBtn.textContent = "기록";
+        logBtn.style.background = color + "30"; // 약 19% 불투명도
+        logBtn.style.color = color;
         logBtn.addEventListener("click", function () {
           const val = parseInt(logInput.value, 10);
           if (isNaN(val) || val <= 0) return;
@@ -4079,21 +4287,12 @@
 
     renderCategories();
 
-    // ---- 하루 마감 기준 (저장만, 실제 동작 연결은 다음 단계) ----
-    const cutoffModeButtons = document.querySelectorAll("#cutoff-mode-segment .segment-btn");
-    const cutoffTimePicker = document.getElementById("cutoff-time-picker");
-    const cutoffModeHint = document.getElementById("cutoff-mode-hint");
+    // ---- 하루 전환 기준 (고정 시간만 사용) ----
     const cutoffHourInput = document.getElementById("cutoff-hour-input");
     const cutoffMinuteInput = document.getElementById("cutoff-minute-input");
     const ampmButtons = document.querySelectorAll("#ampm-segment .segment-btn");
 
-    const cutoffModeHints = {
-      dynamic: "마지막 일정이 끝난 뒤 자동으로 다음 날로 전환합니다.",
-      fixed: "지정한 새벽 시각(예: 02:00)까지 오늘 플래너를 유지합니다."
-    };
-
     let appSettings = JSON.parse(localStorage.getItem("appSettings")) || {
-      cutoffMode: "dynamic",
       cutoffTime: "04:00"
     };
 
@@ -4144,6 +4343,8 @@
 
       appSettings.cutoffTime = combineCutoffTime(hour12, minute, ampm);
       saveAppSettings();
+      // today가 페이지 로드 시 한 번만 계산되므로, 바뀐 기준을 바로 반영하려면 새로고침이 필요함
+      location.reload();
     }
 
     cutoffHourInput.addEventListener("change", commitCutoffTime);
@@ -4158,24 +4359,7 @@
       });
     });
 
-    function updateCutoffModeUI() {
-      cutoffModeButtons.forEach(function (btn) {
-        btn.classList.toggle("active", btn.dataset.value === appSettings.cutoffMode);
-      });
-      cutoffTimePicker.style.display = appSettings.cutoffMode === "fixed" ? "flex" : "none";
-      cutoffModeHint.textContent = cutoffModeHints[appSettings.cutoffMode];
-    }
-
     loadCutoffTimeUI();
-    updateCutoffModeUI();
-
-    cutoffModeButtons.forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        appSettings.cutoffMode = btn.dataset.value;
-        updateCutoffModeUI();
-        saveAppSettings();
-      });
-    });
   </script>
 </body>
 </html>
