@@ -583,6 +583,74 @@
       font-size: 11px;
     }
 
+    .schedule-gap {
+      display: flex;
+      align-items: center;
+      height: 8px;
+      margin: -8px 0;
+    }
+
+    .schedule-gap-spacer {
+      width: 20px;
+      flex: none;
+    }
+
+    .schedule-gap-triangle {
+      cursor: pointer;
+      color: var(--border);
+      font-size: 12px;
+      line-height: 1;
+      padding: 2px 6px;
+      margin-left: 18px;
+    }
+
+    .schedule-gap-triangle:hover {
+      color: var(--blue);
+    }
+
+    .schedule-gap-rest {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 8px;
+    }
+
+    .schedule-gap-remove {
+      cursor: pointer;
+      color: var(--muted);
+      font: 700 10px system-ui, sans-serif;
+      opacity: 0.6;
+      flex: none;
+    }
+
+    .schedule-gap-remove:hover {
+      opacity: 1;
+      color: #d64545;
+    }
+
+    .schedule-gap-time {
+      width: 34px;
+      flex: none;
+      font: 600 10px ui-monospace, Menlo, monospace;
+      color: var(--muted);
+      border: none;
+      background: transparent;
+      outline: none;
+      padding: 0;
+    }
+
+    .schedule-gap-time:focus {
+      color: var(--blue);
+    }
+
+    .schedule-gap-bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--border);
+    }
+
     .settings-btn {
       position: fixed;
       top: 28px;
@@ -2156,6 +2224,49 @@
       scheduleList.innerHTML = "";
 
       schedule.forEach(function (item, index) {
+        // 휴식 블록은 일반 블록과 완전히 다른(얇은 막대) 모습으로 그림
+        if (item.isRest) {
+          const gap = document.createElement("div");
+          gap.className = "schedule-gap has-rest";
+
+          const gapSpacer = document.createElement("div");
+          gapSpacer.className = "schedule-gap-spacer";
+          gap.appendChild(gapSpacer);
+
+          const restBox = document.createElement("div");
+          restBox.className = "schedule-gap-rest";
+
+          const gapRemove = document.createElement("span");
+          gapRemove.className = "schedule-gap-remove";
+          gapRemove.textContent = "×";
+          gapRemove.addEventListener("click", function () {
+            removeRestBlock(index);
+          });
+
+          const gapTime = document.createElement("input");
+          gapTime.type = "text";
+          gapTime.className = "schedule-gap-time";
+          gapTime.value = item.time;
+          gapTime.addEventListener("change", function () {
+            const parts = gapTime.value.split(":");
+            let h = parseInt(parts[0], 10);
+            let m = parseInt(parts[1], 10);
+            if (isNaN(h)) h = parseInt(item.time.split(":")[0], 10);
+            if (isNaN(m)) m = parseInt(item.time.split(":")[1], 10);
+            updateRestTime(index, pad2(h) + ":" + pad2(m));
+          });
+
+          const gapBar = document.createElement("div");
+          gapBar.className = "schedule-gap-bar";
+
+          restBox.appendChild(gapRemove);
+          restBox.appendChild(gapTime);
+          restBox.appendChild(gapBar);
+          gap.appendChild(restBox);
+          scheduleList.appendChild(gap);
+          return;
+        }
+
         const row = document.createElement("div");
         row.style.display = "flex";
         row.style.alignItems = "center";
@@ -2324,6 +2435,28 @@
         row.appendChild(timeWrap);
         row.appendChild(box);
         scheduleList.appendChild(row);
+
+        // 바로 다음 자리가 비어있을 때만(이미 휴식이 있으면 안 보임) 휴식 추가 삼각형을 보여줌
+        const next = schedule[index + 1];
+        if (next && !next.isRest) {
+          const gap = document.createElement("div");
+          gap.className = "schedule-gap";
+
+          const gapSpacer = document.createElement("div");
+          gapSpacer.className = "schedule-gap-spacer";
+          gap.appendChild(gapSpacer);
+
+          const gapTriangle = document.createElement("span");
+          gapTriangle.className = "schedule-gap-triangle";
+          gapTriangle.textContent = "▷";
+          gapTriangle.title = "휴식 추가";
+          gapTriangle.addEventListener("click", function () {
+            insertRestBlock(index);
+          });
+          gap.appendChild(gapTriangle);
+
+          scheduleList.appendChild(gap);
+        }
       });
 
       renderCategoryStats();
@@ -2347,6 +2480,16 @@
 
     // 같은 하루 일정 안에서, 각 항목이 "다음 일정까지" 실제로 몇 분짜리였는지 계산
     // 맨 마지막 항목은 다음 일정이 없으니, 그 다음 정각(예: 23:20이면 24:00)까지로 계산
+    //
+    // 휴식 블록도 schedule 배열의 진짜 항목이라(카테고리만 없음) 별도 처리 없이
+    // 이 계산에 자연스럽게 같이 섞여 들어감. 카테고리별 통계 쪽에서 카테고리 없는
+    // 항목을 걸러내기 때문에, 휴식 시간은 자동으로 카테고리 집계에서 빠짐.
+    function nextHourBoundary(startMin) {
+      let boundary = Math.ceil(startMin / 60) * 60;
+      if (boundary === startMin) boundary += 60;
+      return boundary;
+    }
+
     function getItemDurations(scheduleItems) {
       const sorted = scheduleItems.slice().sort(function (a, b) {
         return scheduleSortKey(a.time).localeCompare(scheduleSortKey(b.time));
@@ -2356,15 +2499,15 @@
         const next = sorted[i + 1];
         const startMin = timeToExtendedMinutes(item.time);
 
+        let minutes;
         if (!next) {
-          // 다음 정각까지의 남은 분 (이미 정각이면 그다음 정각까지 꽉 채운 60분으로 봄)
-          let minutes = Math.ceil(startMin / 60) * 60 - startMin;
-          if (minutes === 0) minutes = 60;
-          return { item: item, minutes: minutes };
+          minutes = nextHourBoundary(startMin) - startMin;
+        } else {
+          minutes = timeToExtendedMinutes(next.time) - startMin;
+          minutes = minutes > 0 ? minutes : 0;
         }
 
-        const minutes = timeToExtendedMinutes(next.time) - startMin;
-        return { item: item, minutes: minutes > 0 ? minutes : 0 };
+        return { item: item, minutes: minutes };
       });
     }
 
@@ -2376,6 +2519,14 @@
       const m = parseInt(parts[1], 10) || 0;
       if (h < 5) h += 24;
       return h * 60 + m;
+    }
+
+    // timeToExtendedMinutes의 역함수 — 확장된 분 값을 실제 "HH:MM" 시계 시각으로 되돌림
+    function extendedMinutesToTime(extMin) {
+      const totalMin = ((extMin % 1440) + 1440) % 1440;
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return pad2(h) + ":" + pad2(m);
     }
 
     // 소수점 시간을 화면에 보기 좋게(소수점 1자리까지만) 표시
@@ -2944,6 +3095,41 @@
 
     function cycleScheduleStatus(index) {
       schedule[index].status = nextScheduleStatus(schedule[index].status);
+      saveScheduleFor(selectedDate, schedule);
+      renderSchedule();
+    }
+
+    // index 뒤에 휴식 블록을 진짜 일정 항목으로 끼워 넣음 (schedule 배열의 정식 항목)
+    // 그래야 "정렬" 버튼이나 나중에 만들 "하루 휴식 총량 보기" 기능에서 다른 일정들과 똑같이 다뤄짐
+    function insertRestBlock(index) {
+      const item = schedule[index];
+      const next = schedule[index + 1];
+      const boundary = next
+        ? timeToExtendedMinutes(next.time)
+        : nextHourBoundary(timeToExtendedMinutes(item.time));
+      const restTime = extendedMinutesToTime(boundary - 10);
+
+      schedule.splice(index + 1, 0, {
+        time: restTime,
+        text: "휴식",
+        status: "done",
+        category: "",
+        subcategory: "",
+        isRest: true
+      });
+
+      saveScheduleFor(selectedDate, schedule);
+      renderSchedule();
+    }
+
+    function updateRestTime(index, timeStr) {
+      schedule[index].time = timeStr;
+      saveScheduleFor(selectedDate, schedule);
+      renderSchedule();
+    }
+
+    function removeRestBlock(index) {
+      schedule.splice(index, 1);
       saveScheduleFor(selectedDate, schedule);
       renderSchedule();
     }
