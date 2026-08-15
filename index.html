@@ -479,9 +479,21 @@
       border-radius: 10px;
       background: var(--bg);
       display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 4px 14px;
+    }
+
+    .schedule-box:has(.schedule-reason-input) {
+      justify-content: flex-start;
+      padding-top: 4px;
+    }
+
+    .schedule-box-row {
+      display: flex;
       align-items: center;
-      padding: 0 14px;
       gap: 8px;
+      min-height: 32px;
     }
 
     .schedule-box .check {
@@ -495,12 +507,20 @@
       position: relative;
     }
 
-    .schedule-box .check.progress {
-      border: none;
-      border-radius: 50%;
-      background: conic-gradient(var(--blue-light) 0deg 180deg, var(--border) 180deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+    .schedule-box .check.skipped {
+      background: #d64545;
+      border-color: #d64545;
+    }
+
+    .schedule-box .check.skipped::after {
+      content: "✕";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
     }
 
     .schedule-box .check.done {
@@ -526,6 +546,22 @@
       flex: 1;
       color: var(--text);
       width: 100%;
+    }
+
+    .schedule-reason-input {
+      display: block;
+      width: 100%;
+      margin: -4px 0 4px 0;
+      font: 10px system-ui, sans-serif;
+      color: #d64545;
+      background: transparent;
+      border: none;
+      padding: 0 0 2px 50px;
+      outline: none;
+    }
+
+    .schedule-reason-input::placeholder {
+      color: #d6454580;
     }
 
     .schedule-box .remove {
@@ -1810,11 +1846,18 @@
       return n < 10 ? "0" + n : "" + n;
     }
 
-    // 빈 상자 → 진행 중(초록) → 완료(파랑) → 다시 빈 상자로 순환
+    // 빈 상자 → 진행 중(초록) → 완료(파랑) → 다시 빈 상자로 순환 (할 일 목록 / 오늘 할 일에서 사용)
     function nextStatus(current) {
       if (current === "progress") return "done";
       if (current === "done") return "todo";
       return "progress";
+    }
+
+    // 빈 상자 → 완료(파랑) → 못함(빨강 X) → 다시 빈 상자로 순환 (하루 일정표 전용)
+    function nextScheduleStatus(current) {
+      if (current === "done") return "skipped";
+      if (current === "skipped") return "todo";
+      return "done";
     }
 
     // 예전 버전의 done(true/false) 데이터를 status 문자열로 변환 (하위 호환)
@@ -2200,7 +2243,7 @@
         });
 
         const check = document.createElement("div");
-        check.className = "check" + (item.status === "progress" ? " progress" : item.status === "done" ? " done" : "");
+        check.className = "check" + (item.status === "skipped" ? " skipped" : item.status === "done" ? " done" : "");
         check.addEventListener("click", function () {
           cycleScheduleStatus(index);
         });
@@ -2212,6 +2255,10 @@
         if (item.status === "done") {
           textInput.style.textDecoration = "line-through";
           textInput.style.opacity = "0.4";
+        } else if (item.status === "skipped") {
+          textInput.style.textDecoration = "line-through";
+          textInput.style.opacity = "0.5";
+          textInput.style.color = "#d64545";
         }
         textInput.addEventListener("change", function () {
           schedule[index].text = textInput.value;
@@ -2253,10 +2300,27 @@
           }, 2500);
         });
 
-        box.appendChild(categoryPicker);
-        box.appendChild(check);
-        box.appendChild(textInput);
-        box.appendChild(removeBtn);
+        const boxRow = document.createElement("div");
+        boxRow.className = "schedule-box-row";
+        boxRow.appendChild(categoryPicker);
+        boxRow.appendChild(check);
+        boxRow.appendChild(textInput);
+        boxRow.appendChild(removeBtn);
+        box.appendChild(boxRow);
+
+        // "못함(X)" 상태일 때만, 박스 안쪽 텍스트 바로 아래에 이유를 적는 작은 메모 줄이 나타남
+        if (item.status === "skipped") {
+          const reasonInput = document.createElement("input");
+          reasonInput.className = "schedule-reason-input";
+          reasonInput.placeholder = "못한 이유";
+          reasonInput.value = item.failReason || "";
+          reasonInput.addEventListener("change", function () {
+            schedule[index].failReason = reasonInput.value;
+            saveScheduleFor(selectedDate, schedule);
+          });
+          box.appendChild(reasonInput);
+        }
+
         row.appendChild(timeWrap);
         row.appendChild(box);
         scheduleList.appendChild(row);
@@ -2761,7 +2825,6 @@
       let maxHours = 1;
       rows.forEach(function (row) {
         cat.subcategories.forEach(function (subName) {
-          if (hiddenLineSubcats[subName]) return;
           const hours = row.totals[subName] || 0;
           if (hours > maxHours) maxHours = hours;
         });
@@ -2880,7 +2943,7 @@
     });
 
     function cycleScheduleStatus(index) {
-      schedule[index].status = nextStatus(schedule[index].status);
+      schedule[index].status = nextScheduleStatus(schedule[index].status);
       saveScheduleFor(selectedDate, schedule);
       renderSchedule();
     }
