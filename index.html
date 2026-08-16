@@ -1361,8 +1361,36 @@
     }
 
     .material-pace-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
       font: 12px system-ui, sans-serif;
       color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .material-pace-row b {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .material-pace-input {
+      width: 40px;
+      font: 600 12px system-ui, sans-serif;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 5px;
+      text-align: right;
+      outline: none;
+      background: var(--card);
+      -moz-appearance: textfield;
+    }
+
+    .material-pace-input::-webkit-inner-spin-button,
+    .material-pace-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
     }
 
     .material-log-row {
@@ -1759,6 +1787,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="category-delete-overlay">
+    <div class="modal-panel" style="width:320px;">
+      <div class="card-title" style="font-size:16px;">삭제하시겠어요?</div>
+      <div id="category-delete-message" class="setting-hint" style="margin-top:8px; line-height:1.5;"></div>
+      <div style="display:flex; gap:8px; margin-top:18px; justify-content:flex-end;">
+        <span class="habit-remove" id="category-delete-cancel" style="opacity:0.7; align-self:center;">취소</span>
+        <button id="category-delete-confirm" style="background:#d64545; color:#fff; border:none; border-radius:8px; padding:8px 16px; font:600 13px system-ui, sans-serif; cursor:pointer;">삭제</button>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <h1 id="today-title"></h1>
 
@@ -1836,6 +1875,13 @@
           </div>
           <div id="todo-items"></div>
           <div class="add-trigger" id="add-trigger">+ 할 일 추가</div>
+        </div>
+
+        <!-- 독서 진행률: 읽고 있는 페이지를 그대로 입력하면 자동 계산됨 -->
+        <div class="card" id="reading-progress-card">
+          <div class="section-title">독서 진행률</div>
+          <div id="reading-list" style="display:flex; flex-direction:column; gap:16px; margin-top:8px;"></div>
+          <div class="add-trigger" id="reading-add-trigger">+ 책 추가</div>
         </div>
       </div>
     </div>
@@ -3636,12 +3682,63 @@
       localStorage.setItem("materials", JSON.stringify(materials));
     }
 
-    // 기록된 날짜들의 평균 하루 페이지 수 (달력 일수가 아니라, 실제 기록을 남긴 날 기준)
-    function materialAverage(material) {
-      const dates = Object.keys(material.dailyLog || {});
-      if (dates.length === 0) return 0;
-      const total = dates.reduce(function (sum, d) { return sum + material.dailyLog[d]; }, 0);
-      return total / dates.length;
+    // 평균이 아니라, "가장 최근에 실제로 기록이 있었던 날"의 양을 기본값으로 삼음
+    // (어제 기록이 없으면 그 전날, 또 없으면 더 전날... 이렇게 거슬러 올라가서 찾음)
+    function getLastLoggedAmount(dailyLog) {
+      const dates = Object.keys(dailyLog || {}).sort(); // 오름차순(과거→최근)
+      for (let i = dates.length - 1; i >= 0; i--) {
+        if (dailyLog[dates[i]] > 0) return dailyLog[dates[i]];
+      }
+      return 0;
+    }
+
+    // "하루에 N개씩 하면" 입력칸 + 계산 결과를 만들어서 pace row에 채워 넣음.
+    // 입력값은 저장하지 않아서, 다시 열면 항상 기본값(마지막 기록일 기준)으로 리셋됨
+    function renderPaceEstimate(paceRow, dailyLog, remaining, unit, totalPages) {
+      paceRow.innerHTML = "";
+
+      if (totalPages > 0 && remaining === 0) {
+        paceRow.textContent = "완독했어요 🎉";
+        return;
+      }
+
+      const defaultPace = getLastLoggedAmount(dailyLog);
+
+      const prefixLabel = document.createElement("span");
+      prefixLabel.textContent = "하루에";
+
+      const paceInput = document.createElement("input");
+      paceInput.type = "number";
+      paceInput.className = "material-pace-input";
+      paceInput.min = "0";
+      paceInput.value = defaultPace;
+
+      const suffixLabel = document.createElement("span");
+      suffixLabel.textContent = unit + "씩 하면";
+
+      const resultLabel = document.createElement("span");
+
+      function updateResult() {
+        let val = parseInt(paceInput.value, 10);
+        if (isNaN(val) || val < 0) val = 0;
+        if (val === 0) {
+          resultLabel.textContent = "기록을 남기면(또는 위 칸에 값을 입력하면) 완독 예상일을 알려드려요";
+          return;
+        }
+        const daysLeft = Math.ceil(remaining / val);
+        const finishDate = addDays(today, daysLeft);
+        const yy = String(finishDate.getFullYear()).slice(2);
+        resultLabel.innerHTML =
+          "<b>" + daysLeft + "일</b> 뒤인 <b>" + yy + "년 " + (finishDate.getMonth() + 1) + "월 " + finishDate.getDate() + "일</b>에 완료";
+      }
+
+      paceInput.addEventListener("input", updateResult);
+      updateResult();
+
+      paceRow.appendChild(prefixLabel);
+      paceRow.appendChild(paceInput);
+      paceRow.appendChild(suffixLabel);
+      paceRow.appendChild(resultLabel);
     }
 
     function renderMaterials() {
@@ -3774,18 +3871,7 @@
 
         const paceRow = document.createElement("div");
         paceRow.className = "material-pace-row";
-        const avg = materialAverage(material);
-        if (material.totalPages > 0 && remaining === 0) {
-          paceRow.textContent = "완독했어요 🎉";
-        } else if (avg > 0 && remaining > 0) {
-          const daysLeft = Math.ceil(remaining / avg);
-          const finishDate = addDays(today, daysLeft);
-          paceRow.textContent =
-            "하루 평균 " + Math.round(avg) + unit + " · " +
-            (finishDate.getMonth() + 1) + "월 " + finishDate.getDate() + "일쯤 완독 예상";
-        } else {
-          paceRow.textContent = "기록을 남기면 완독 예상일을 알려드려요";
-        }
+        renderPaceEstimate(paceRow, material.dailyLog, remaining, unit, material.totalPages);
 
         const logRow = document.createElement("div");
         logRow.className = "material-log-row";
@@ -3872,6 +3958,208 @@
     }
 
     renderMaterials();
+
+    // ---- 독서 진행률 (오늘 도달한 페이지를 그대로 입력하면 자동으로 오늘 읽은 양 계산) ----
+    const readingList = document.getElementById("reading-list");
+    const readingAddTrigger = document.getElementById("reading-add-trigger");
+
+    readingAddTrigger.addEventListener("click", function () {
+      const color = materialColorPalette[readingBooks.length % materialColorPalette.length];
+      readingBooks.push({ title: "", totalPages: 0, currentPage: 0, dailyLog: {}, color: color });
+      saveReadingBooks();
+      renderReadingBooks();
+      const titleInputs = readingList.querySelectorAll(".material-title");
+      titleInputs[titleInputs.length - 1].focus();
+    });
+
+    let readingBooks = JSON.parse(localStorage.getItem("readingBooks")) || [];
+
+    function saveReadingBooks() {
+      localStorage.setItem("readingBooks", JSON.stringify(readingBooks));
+    }
+
+    function renderReadingBooks() {
+      readingList.innerHTML = "";
+      const todayKey = formatDateKey(today);
+
+      readingBooks.forEach(function (book, index) {
+        const color = book.color || materialColorPalette[index % materialColorPalette.length];
+
+        const item = document.createElement("div");
+        item.className = "material-item";
+
+        const header = document.createElement("div");
+        header.className = "material-header";
+
+        const title = document.createElement("input");
+        title.className = "material-title";
+        title.placeholder = "책 이름";
+        title.value = book.title;
+        title.addEventListener("change", function () {
+          readingBooks[index].title = title.value;
+          saveReadingBooks();
+        });
+
+        const removeBtn = document.createElement("span");
+        removeBtn.className = "material-remove";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", function () {
+          if (removeBtn.classList.contains("confirm")) {
+            const removedIndex = index;
+            const removedBook = readingBooks[removedIndex];
+
+            readingBooks.splice(removedIndex, 1);
+            saveReadingBooks();
+            renderReadingBooks();
+
+            showUndoToast("책을 삭제했어요.", function () {
+              readingBooks.splice(removedIndex, 0, removedBook);
+              saveReadingBooks();
+              renderReadingBooks();
+            });
+            return;
+          }
+          removeBtn.classList.add("confirm");
+          removeBtn.textContent = "삭제?";
+          setTimeout(function () {
+            removeBtn.classList.remove("confirm");
+            removeBtn.textContent = "×";
+          }, 2500);
+        });
+
+        header.appendChild(title);
+        header.appendChild(removeBtn);
+
+        const totalRow = document.createElement("div");
+        totalRow.className = "material-total-row";
+        const totalLabel = document.createElement("span");
+        totalLabel.textContent = "총";
+        const totalInput = document.createElement("input");
+        totalInput.type = "number";
+        totalInput.className = "material-total-input";
+        totalInput.min = "0";
+        totalInput.value = book.totalPages || 0;
+        totalInput.addEventListener("change", function () {
+          let val = parseInt(totalInput.value, 10);
+          if (isNaN(val) || val < 0) val = 0;
+          readingBooks[index].totalPages = val;
+          saveReadingBooks();
+          renderReadingBooks();
+        });
+        const totalSuffix = document.createElement("span");
+        totalSuffix.textContent = "쪽";
+        totalRow.appendChild(totalLabel);
+        totalRow.appendChild(totalInput);
+        totalRow.appendChild(totalSuffix);
+
+        const track = document.createElement("div");
+        track.className = "material-progress-track";
+        const fill = document.createElement("div");
+        fill.className = "material-progress-fill";
+        fill.style.background = color;
+        const percent = book.totalPages > 0
+          ? Math.min(100, Math.round(book.currentPage / book.totalPages * 100))
+          : 0;
+        fill.style.width = percent + "%";
+        track.appendChild(fill);
+
+        const remaining = Math.max(0, book.totalPages - book.currentPage);
+
+        const statsRow = document.createElement("div");
+        statsRow.className = "material-stats-row";
+
+        const leftStat = document.createElement("span");
+        leftStat.className = "material-current-wrap";
+
+        const currentInput = document.createElement("input");
+        currentInput.type = "number";
+        currentInput.className = "material-current-input";
+        currentInput.min = "0";
+        currentInput.value = book.currentPage;
+        currentInput.addEventListener("change", function () {
+          let val = parseInt(currentInput.value, 10);
+          if (isNaN(val) || val < 0) val = 0;
+          if (val > book.totalPages) val = book.totalPages;
+          readingBooks[index].currentPage = val;
+          saveReadingBooks();
+          renderReadingBooks();
+        });
+
+        const leftText = document.createElement("span");
+        leftText.textContent = " / " + book.totalPages + "쪽 · " + percent + "%";
+
+        leftStat.appendChild(currentInput);
+        leftStat.appendChild(leftText);
+
+        const rightStat = document.createElement("span");
+        rightStat.textContent = remaining + "쪽 남음";
+        statsRow.appendChild(leftStat);
+        statsRow.appendChild(rightStat);
+
+        const paceRow = document.createElement("div");
+        paceRow.className = "material-pace-row";
+        renderPaceEstimate(paceRow, book.dailyLog, remaining, "쪽", book.totalPages);
+
+        // 오늘 읽은 양 = 오늘 기록된 dailyLog 값 (여러 번 입력해도 자동으로 누적됨)
+        const todayRead = (book.dailyLog && book.dailyLog[todayKey]) || 0;
+        const readRow = document.createElement("div");
+        readRow.className = "material-log-row";
+
+        const readLabel = document.createElement("span");
+        readLabel.textContent = "오늘";
+
+        const readInput = document.createElement("input");
+        readInput.type = "number";
+        readInput.className = "material-log-input";
+        readInput.min = "0";
+        // 이 칸은 "추가로 읽은 양"이 아니라 "지금까지 도달한 쪽수"를 입력하는 칸
+        readInput.value = book.currentPage;
+
+        const readSuffix = document.createElement("span");
+        readSuffix.textContent = "쪽";
+
+        const readBtn = document.createElement("button");
+        readBtn.className = "material-log-btn";
+        readBtn.textContent = "기록";
+        readBtn.style.background = color + "30"; // 약 19% 불투명도
+        readBtn.style.color = color;
+        readBtn.addEventListener("click", function () {
+          let entered = parseInt(readInput.value, 10);
+          if (isNaN(entered) || entered < 0) entered = 0;
+          if (book.totalPages > 0 && entered > book.totalPages) entered = book.totalPages;
+
+          // 새로 입력한 페이지 - 지금까지 기록된 페이지 = 오늘(또는 이번 입력으로) 읽은 양
+          const delta = entered - book.currentPage;
+          if (!readingBooks[index].dailyLog) readingBooks[index].dailyLog = {};
+          const prevToday = readingBooks[index].dailyLog[todayKey] || 0;
+          readingBooks[index].dailyLog[todayKey] = Math.max(0, prevToday + delta);
+          readingBooks[index].currentPage = entered;
+
+          saveReadingBooks();
+          renderReadingBooks();
+        });
+
+        const readNoteWrap = document.createElement("span");
+        readNoteWrap.className = "setting-hint";
+        readNoteWrap.textContent = "(오늘 총 " + todayRead + "쪽)";
+
+        readRow.appendChild(readLabel);
+        readRow.appendChild(readInput);
+        readRow.appendChild(readSuffix);
+        readRow.appendChild(readBtn);
+        readRow.appendChild(readNoteWrap);
+
+        item.appendChild(header);
+        item.appendChild(totalRow);
+        item.appendChild(track);
+        item.appendChild(statsRow);
+        item.appendChild(paceRow);
+        item.appendChild(readRow);
+        readingList.appendChild(item);
+      });
+    }
+
+    renderReadingBooks();
 
     // ---- 오늘 할 일 (날짜별로 저장 — 그 날짜에서만 보임) ----
     const dailyTodoList = document.getElementById("daily-todo-items");
@@ -4226,6 +4514,82 @@
       localStorage.setItem("categories", JSON.stringify(categories));
     }
 
+    // ---- 카테고리/소분류 삭제 확인 모달 ----
+    const categoryDeleteOverlay = document.getElementById("category-delete-overlay");
+    const categoryDeleteMessage = document.getElementById("category-delete-message");
+    const categoryDeleteCancel = document.getElementById("category-delete-cancel");
+    const categoryDeleteConfirm = document.getElementById("category-delete-confirm");
+    let pendingDelete = null;
+
+    // localStorage의 모든 schedule-* 항목을 훑어서, 이 카테고리(+소분류)를 쓰는 일정이 몇 개인지 셈
+    function countScheduleUsage(categoryName, subcategoryName) {
+      let count = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || key.indexOf("schedule-") !== 0) continue;
+        let items;
+        try {
+          items = JSON.parse(localStorage.getItem(key)) || [];
+        } catch (e) {
+          continue;
+        }
+        items.forEach(function (item) {
+          if (item.category !== categoryName) return;
+          if (subcategoryName !== undefined && item.subcategory !== subcategoryName) return;
+          count++;
+        });
+      }
+      return count;
+    }
+
+    function openCategoryDeleteModal(type, payload) {
+      pendingDelete = Object.assign({ type: type }, payload);
+
+      let label, count;
+      if (type === "category") {
+        const cat = categories[payload.index];
+        label = cat.name || "이름 없는 카테고리";
+        count = countScheduleUsage(cat.name);
+      } else {
+        const cat = categories[payload.catIndex];
+        label = cat.subcategories[payload.subIndex] || "이름 없는 소분류";
+        count = countScheduleUsage(cat.name, cat.subcategories[payload.subIndex]);
+      }
+
+      categoryDeleteMessage.textContent =
+        "\"" + label + "\"을(를) 삭제하시겠어요?" +
+        (count > 0
+          ? " 이걸 쓰는 하루 일정이 " + count + "개 있어요. 그 일정 자체는 안 지워지지만, 카테고리 표시는 사라져요."
+          : " 이걸 쓰는 하루 일정은 없어요.");
+
+      categoryDeleteOverlay.classList.add("visible");
+    }
+
+    function closeCategoryDeleteModal() {
+      pendingDelete = null;
+      categoryDeleteOverlay.classList.remove("visible");
+    }
+
+    categoryDeleteCancel.addEventListener("click", closeCategoryDeleteModal);
+
+    categoryDeleteOverlay.addEventListener("click", function (event) {
+      if (event.target === categoryDeleteOverlay) closeCategoryDeleteModal();
+    });
+
+    categoryDeleteConfirm.addEventListener("click", function () {
+      if (!pendingDelete) return;
+
+      if (pendingDelete.type === "category") {
+        categories.splice(pendingDelete.index, 1);
+      } else {
+        categories[pendingDelete.catIndex].subcategories.splice(pendingDelete.subIndex, 1);
+      }
+
+      saveCategories();
+      renderCategories();
+      closeCategoryDeleteModal();
+    });
+
     function renderCategories() {
       categoryList.innerHTML = "";
 
@@ -4261,9 +4625,7 @@
         removeBtn.className = "remove";
         removeBtn.textContent = "×";
         removeBtn.addEventListener("click", function () {
-          categories.splice(index, 1);
-          saveCategories();
-          renderCategories();
+          openCategoryDeleteModal("category", { index: index });
         });
 
         row.appendChild(swatch);
@@ -4297,9 +4659,7 @@
           subRemoveBtn.className = "remove";
           subRemoveBtn.textContent = "×";
           subRemoveBtn.addEventListener("click", function () {
-            categories[index].subcategories.splice(subIndex, 1);
-            saveCategories();
-            renderCategories();
+            openCategoryDeleteModal("subcategory", { catIndex: index, subIndex: subIndex });
           });
 
           subRow.appendChild(dot);
