@@ -105,6 +105,27 @@
       color: oklch(0.62 0.13 70);
     }
 
+    .week-day.holiday {
+      border-color: oklch(0.75 0.09 25);
+    }
+
+    .week-day.holiday.selected {
+      background: oklch(0.75 0.09 25 / 0.12);
+    }
+
+    .week-day.holiday .day-name,
+    .week-day.holiday .day-date {
+      color: oklch(0.62 0.14 25);
+    }
+
+    .week-day .holiday-label {
+      font: 10px system-ui, sans-serif;
+      color: oklch(0.62 0.14 25);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .week-nav-btn {
       border: none;
       background: var(--bg);
@@ -364,6 +385,46 @@
       height: 100%;
       background: var(--blue-light);
       border-radius: 2px;
+      transition: background 0.2s;
+    }
+
+    .todo-deadline-trigger {
+      flex: none;
+      font: 600 10px system-ui, sans-serif;
+      color: var(--muted);
+      opacity: 0;
+      cursor: pointer;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      padding: 3px 6px;
+      white-space: nowrap;
+    }
+
+    .todo-item:hover .todo-deadline-trigger {
+      opacity: 0.6;
+    }
+
+    .todo-deadline-trigger:hover {
+      opacity: 1 !important;
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    .todo-deadline-badge {
+      flex: none;
+      font: 700 11px system-ui, sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      padding: 2px 4px;
+    }
+
+    .todo-deadline-input {
+      flex: none;
+      font: 11px system-ui, sans-serif;
+      border: 1px solid var(--blue);
+      border-radius: 6px;
+      padding: 2px 4px;
+      outline: none;
     }
 
     .tri-check {
@@ -1222,6 +1283,9 @@
       background: transparent;
       padding: 2px 4px;
       border-radius: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .material-title:focus {
@@ -1787,6 +1851,16 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="reading-history-overlay">
+    <div class="modal-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title" style="font-size:16px;">기록</div>
+        <span class="modal-close" id="reading-history-close">×</span>
+      </div>
+      <div id="reading-history-list" style="display:flex; flex-direction:column; gap:4px; margin-top:10px;"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="category-delete-overlay">
     <div class="modal-panel" style="width:320px;">
       <div class="card-title" style="font-size:16px;">삭제하시겠어요?</div>
@@ -1795,6 +1869,20 @@
         <span class="habit-remove" id="category-delete-cancel" style="opacity:0.7; align-self:center;">취소</span>
         <button id="category-delete-confirm" style="background:#d64545; color:#fff; border:none; border-radius:8px; padding:8px 16px; font:600 13px system-ui, sans-serif; cursor:pointer;">삭제</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="material-history-overlay">
+    <div class="modal-panel" style="width:880px; max-width:95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title" style="font-size:18px;">기록</div>
+        <span class="modal-close" id="material-history-close">×</span>
+      </div>
+      <div class="setting-hint" style="margin-top:8px;">비교하고 싶은 자료를 골라주세요 (여러 개 선택 가능해요)</div>
+      <div id="material-history-select-row" style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;"></div>
+      <div id="material-history-meta" class="setting-hint" style="margin-top:12px; font-size:13px;"></div>
+      <div id="material-history-chart" style="margin-top:12px; overflow-x:auto;"></div>
+      <div id="material-history-legend" style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;"></div>
     </div>
   </div>
 
@@ -1834,7 +1922,10 @@
 
         <!-- 학습 자료 진행률: 자리만 -->
         <div class="card" id="materials-progress-card">
-          <div class="section-title">학습 진행률</div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div class="section-title">학습 진행률</div>
+            <span class="habit-remove" id="materials-history-btn" style="opacity:0.7;">기록</span>
+          </div>
           <div id="materials-list" style="display:flex; flex-direction:column; gap:16px; margin-top:8px;"></div>
           <div class="add-trigger" id="material-add-trigger">+ 자료 추가</div>
         </div>
@@ -1879,7 +1970,10 @@
 
         <!-- 독서 진행률: 읽고 있는 페이지를 그대로 입력하면 자동 계산됨 -->
         <div class="card" id="reading-progress-card">
-          <div class="section-title">독서 진행률</div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div class="section-title">독서 진행률</div>
+            <span class="habit-remove" id="reading-history-btn" style="opacity:0.7;">기록</span>
+          </div>
           <div id="reading-list" style="display:flex; flex-direction:column; gap:16px; margin-top:8px;"></div>
           <div class="add-trigger" id="reading-add-trigger">+ 책 추가</div>
         </div>
@@ -1958,6 +2052,38 @@
 
     function pad2(n) {
       return n < 10 ? "0" + n : "" + n;
+    }
+
+    // ---- 공휴일 데이터 (직접 관리, "YYYY-MM-DD": "이름") ----
+    // 매년 연말~연초에 다음 해 공휴일을 추가해줄 것 (대체공휴일 포함, 음력 기반이라 API로는 정확도가 떨어짐)
+    // 출처: 대한민국 정부 관공서의 공휴일에 관한 규정
+    const holidays = {
+      "2026-01-01": "신정",
+      "2026-02-16": "설날 연휴",
+      "2026-02-17": "설날",
+      "2026-02-18": "설날 연휴",
+      "2026-03-01": "삼일절",
+      "2026-03-02": "대체공휴일(삼일절)",
+      "2026-05-05": "어린이날",
+      "2026-05-24": "부처님오신날",
+      "2026-05-25": "대체공휴일(부처님오신날)",
+      "2026-06-03": "전국동시지방선거",
+      "2026-06-06": "현충일",
+      "2026-07-17": "제헌절",
+      "2026-08-15": "광복절",
+      "2026-08-17": "대체공휴일(광복절)",
+      "2026-09-24": "추석 연휴",
+      "2026-09-25": "추석",
+      "2026-09-26": "추석 연휴",
+      "2026-10-03": "개천절",
+      "2026-10-05": "대체공휴일(개천절)",
+      "2026-10-09": "한글날",
+      "2026-12-25": "성탄절"
+    };
+
+    function getHolidayName(date) {
+      const key = date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+      return holidays[key] || null;
     }
 
     // 빈 상자 → 진행 중(초록) → 완료(파랑) → 다시 빈 상자로 순환 (할 일 목록 / 오늘 할 일에서 사용)
@@ -2060,6 +2186,26 @@
       if (!cat.subcategories) cat.subcategories = [];
     });
 
+    // ⚠️ 임시 테스트 코드 — 학습 자료 기록보기 그래프 확인용, 확인 끝나면 제거 예정
+    if (!localStorage.getItem("materialsTestSeeded")) {
+      const existingMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+      if (existingMaterials.length > 0) {
+        existingMaterials.forEach(function (m) {
+          if (!m.dailyLog) m.dailyLog = {};
+          let total = 0;
+          for (let i = 9; i >= 0; i--) {
+            const key = formatDateKey(addDays(today, -i));
+            const amount = 5 + Math.floor(Math.random() * 26); // 5~30 랜덤
+            m.dailyLog[key] = amount;
+            total += amount;
+          }
+          m.currentPage = m.totalPages > 0 ? Math.min(m.totalPages, total) : total;
+        });
+        localStorage.setItem("materials", JSON.stringify(existingMaterials));
+      }
+      localStorage.setItem("materialsTestSeeded", "true");
+    }
+
     // 주간 카드에 보이는 요약 태그 — 하루 일정표(schedule)와는 별개의 저장소
     function loadTagsFor(date) {
       const key = "tags-" + formatDateKey(date);
@@ -2095,10 +2241,13 @@
         const date = addDays(weekAnchor, i);
         const items = loadTagsFor(date);
 
+        const holidayName = getHolidayName(date);
+
         const box = document.createElement("div");
         box.className = "week-day";
         if (isSameDate(date, today)) box.classList.add("today");
         if (isSameDate(date, selectedDate)) box.classList.add("selected");
+        if (holidayName) box.classList.add("holiday");
 
         box.addEventListener("click", function (event) {
           if (event.target.closest(".day-tag") || event.target.closest(".day-add-trigger") || event.target.closest(".day-add-input")) {
@@ -2125,6 +2274,13 @@
         nameRow.appendChild(dayName);
         nameRow.appendChild(dayDate);
         box.appendChild(nameRow);
+
+        if (holidayName) {
+          const holidayLabel = document.createElement("div");
+          holidayLabel.className = "holiday-label";
+          holidayLabel.textContent = holidayName;
+          box.appendChild(holidayLabel);
+        }
 
         items.forEach(function (item, idx) {
           const tag = document.createElement("div");
@@ -2432,8 +2588,11 @@
           renderWeek();
 
           // 바로 다음 시간대 칸으로 포커스 이동 (내용은 안 지움)
+          // schedule 배열의 index를 그대로 쓰면 휴식 블록(.task-input이 없음) 때문에 어긋나므로,
+          // 지금 이 입력창이 taskInputs 목록에서 실제 몇 번째인지 직접 찾아서 다음 걸 가져옴
           const taskInputs = scheduleList.querySelectorAll(".task-input");
-          const nextInput = taskInputs[index + 1];
+          const myPos = Array.prototype.indexOf.call(taskInputs, textInput);
+          const nextInput = taskInputs[myPos + 1];
           if (nextInput) {
             nextInput.focus();
             const len = nextInput.value.length;
@@ -3741,6 +3900,254 @@
       paceRow.appendChild(resultLabel);
     }
 
+    // ---- 학습 자료 기록 보기 모달 (자료를 여러 개 골라서 한 그래프에 색으로 비교) ----
+    const materialsHistoryBtn = document.getElementById("materials-history-btn");
+    const materialHistoryOverlay = document.getElementById("material-history-overlay");
+    const materialHistoryClose = document.getElementById("material-history-close");
+    const materialHistorySelectRow = document.getElementById("material-history-select-row");
+    const materialHistoryMeta = document.getElementById("material-history-meta");
+    const materialHistoryChart = document.getElementById("material-history-chart");
+    const materialHistoryLegend = document.getElementById("material-history-legend");
+    let selectedMaterialIndexes = [];
+
+    materialsHistoryBtn.addEventListener("click", function () {
+      selectedMaterialIndexes = [];
+      renderMaterialHistorySelect();
+      renderMaterialHistoryChart();
+      materialHistoryOverlay.classList.add("visible");
+    });
+
+    materialHistoryClose.addEventListener("click", function () {
+      materialHistoryOverlay.classList.remove("visible");
+    });
+
+    materialHistoryOverlay.addEventListener("click", function (event) {
+      if (event.target === materialHistoryOverlay) {
+        materialHistoryOverlay.classList.remove("visible");
+      }
+    });
+
+    // 자료 선택용 도트+이름 버튼들 (여러 개 동시 선택 가능)
+    function renderMaterialHistorySelect() {
+      materialHistorySelectRow.innerHTML = "";
+
+      if (materials.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "setting-hint";
+        empty.textContent = "자료를 먼저 추가해주세요.";
+        materialHistorySelectRow.appendChild(empty);
+        return;
+      }
+
+      materials.forEach(function (material, index) {
+        const color = material.color || materialColorPalette[index % materialColorPalette.length];
+        const isActive = selectedMaterialIndexes.indexOf(index) !== -1;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "subcat-select-btn" + (isActive ? " active" : "");
+        if (isActive) {
+          btn.style.background = color + "30";
+          btn.style.color = color;
+        }
+
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dot.style.background = color;
+
+        const label = document.createElement("span");
+        label.textContent = material.title || "이름 없는 자료";
+
+        btn.appendChild(dot);
+        btn.appendChild(label);
+        btn.addEventListener("click", function () {
+          const pos = selectedMaterialIndexes.indexOf(index);
+          if (pos === -1) {
+            selectedMaterialIndexes.push(index);
+          } else {
+            selectedMaterialIndexes.splice(pos, 1);
+          }
+          renderMaterialHistorySelect();
+          renderMaterialHistoryChart();
+        });
+        materialHistorySelectRow.appendChild(btn);
+      });
+    }
+
+    // 선택된 자료들의 dailyLog를 한 그래프 위에 색으로 구분해서 겹쳐 그림
+    function renderMaterialHistoryChart() {
+      materialHistoryChart.innerHTML = "";
+      materialHistoryLegend.innerHTML = "";
+
+      if (selectedMaterialIndexes.length === 0) {
+        materialHistoryMeta.textContent = "위에서 자료를 선택하면 그래프가 나와요.";
+        return;
+      }
+
+      const selected = selectedMaterialIndexes.map(function (i) { return materials[i]; });
+
+      // 선택된 자료들 중 가장 이른 시작일 + 가장 오래(길게) 기록한 경과일수를 안내문에 표시
+      let earliestDate = null;
+      let maxElapsed = 0;
+      selected.forEach(function (material) {
+        const dates = Object.keys(material.dailyLog || {}).filter(function (d) { return material.dailyLog[d] > 0; }).sort();
+        if (dates.length === 0) return;
+        const parts = dates[0].split("-");
+        const start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (!earliestDate || start < earliestDate) earliestDate = start;
+        const elapsed = Math.floor((today - start) / (24 * 60 * 60 * 1000)) + 1;
+        if (elapsed > maxElapsed) maxElapsed = elapsed;
+      });
+
+      if (!earliestDate) {
+        materialHistoryMeta.textContent = "선택한 자료에 아직 기록이 없어요.";
+        return;
+      }
+
+      const ey = earliestDate.getFullYear(), em = earliestDate.getMonth() + 1, ed = earliestDate.getDate();
+      materialHistoryMeta.textContent =
+        "가장 빠른 시작일 " + ey + "년 " + em + "월 " + ed + "일 · 가장 길게 기록한 자료 기준 " + maxElapsed + "일째";
+
+      const chart = buildMultiDailyLogChart(selected);
+      if (chart) materialHistoryChart.appendChild(chart);
+
+      // 범례
+      selected.forEach(function (material, i) {
+        const idx = selectedMaterialIndexes[i];
+        const color = material.color || materialColorPalette[idx % materialColorPalette.length];
+        const item = document.createElement("div");
+        item.style.display = "flex";
+        item.style.alignItems = "center";
+        item.style.gap = "6px";
+        item.style.font = "12px system-ui, sans-serif";
+        item.style.color = "var(--muted)";
+
+        const dot = document.createElement("span");
+        dot.style.width = "9px";
+        dot.style.height = "9px";
+        dot.style.borderRadius = "50%";
+        dot.style.background = color;
+        dot.style.display = "inline-block";
+
+        const label = document.createElement("span");
+        label.textContent = material.title || "이름 없는 자료";
+
+        item.appendChild(dot);
+        item.appendChild(label);
+        materialHistoryLegend.appendChild(item);
+      });
+    }
+
+    // 여러 자료의 dailyLog를 한 SVG 위에 각자 색으로 겹쳐 그림 (x축은 선택된 자료들의 날짜를 합친 것)
+    function buildMultiDailyLogChart(materialsToShow) {
+      const dateSet = {};
+      materialsToShow.forEach(function (material) {
+        Object.keys(material.dailyLog || {}).forEach(function (d) {
+          if (material.dailyLog[d] > 0) dateSet[d] = true;
+        });
+      });
+      const dates = Object.keys(dateSet).sort();
+      if (dates.length === 0) return null;
+
+      const svgNS = "http://www.w3.org/2000/svg";
+      const height = 300;
+      const padLeft = 34;
+      const padRight = 24;
+      const padTop = 30;
+      const padBottom = 36;
+
+      const pointSpacing = 70;
+      const plotW = Math.max(800 - padLeft - padRight, (dates.length - 1) * pointSpacing);
+      const width = padLeft + plotW + padRight;
+      const plotH = height - padTop - padBottom;
+
+      let maxVal = 1;
+      materialsToShow.forEach(function (material) {
+        dates.forEach(function (d) {
+          const val = (material.dailyLog && material.dailyLog[d]) || 0;
+          if (val > maxVal) maxVal = val;
+        });
+      });
+
+      function xAt(i) {
+        return dates.length <= 1 ? padLeft : padLeft + (i / (dates.length - 1)) * plotW;
+      }
+      function yAt(val) {
+        return padTop + plotH - (val / maxVal) * plotH;
+      }
+
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+      svg.style.width = width + "px";
+      svg.style.height = height + "px";
+      svg.style.display = "block";
+
+      const axis = document.createElementNS(svgNS, "line");
+      axis.setAttribute("x1", padLeft);
+      axis.setAttribute("y1", padTop + plotH);
+      axis.setAttribute("x2", width - padRight);
+      axis.setAttribute("y2", padTop + plotH);
+      axis.setAttribute("stroke", "var(--border)");
+      axis.setAttribute("stroke-width", "1");
+      svg.appendChild(axis);
+
+      // x축 날짜 라벨 (공통)
+      dates.forEach(function (d, i) {
+        const parts = d.split("-");
+        const text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", xAt(i));
+        text.setAttribute("y", height - 10);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", "13");
+        text.setAttribute("fill", "var(--muted)");
+        text.textContent = parseInt(parts[1], 10) + "/" + parseInt(parts[2], 10);
+        svg.appendChild(text);
+      });
+
+      // 자료별로 선 + 점 + 값 라벨을 각자 색으로 그림 (기록 없는 날은 건너뜀)
+      materialsToShow.forEach(function (material, mi) {
+        const idx = selectedMaterialIndexes[mi];
+        const color = material.color || materialColorPalette[idx % materialColorPalette.length];
+
+        const loggedPoints = [];
+        dates.forEach(function (d, i) {
+          const val = (material.dailyLog && material.dailyLog[d]) || 0;
+          if (val > 0) loggedPoints.push({ i: i, val: val });
+        });
+        if (loggedPoints.length === 0) return;
+
+        const points = loggedPoints.map(function (p) { return xAt(p.i) + "," + yAt(p.val); }).join(" ");
+        const polyline = document.createElementNS(svgNS, "polyline");
+        polyline.setAttribute("points", points);
+        polyline.setAttribute("fill", "none");
+        polyline.setAttribute("stroke", color);
+        polyline.setAttribute("stroke-width", "2");
+        polyline.setAttribute("stroke-linejoin", "round");
+        svg.appendChild(polyline);
+
+        loggedPoints.forEach(function (p) {
+          const dot = document.createElementNS(svgNS, "circle");
+          dot.setAttribute("cx", xAt(p.i));
+          dot.setAttribute("cy", yAt(p.val));
+          dot.setAttribute("r", "4");
+          dot.setAttribute("fill", color);
+          svg.appendChild(dot);
+
+          const valueLabel = document.createElementNS(svgNS, "text");
+          valueLabel.setAttribute("x", xAt(p.i));
+          valueLabel.setAttribute("y", yAt(p.val) - 11);
+          valueLabel.setAttribute("text-anchor", "middle");
+          valueLabel.setAttribute("font-size", "12");
+          valueLabel.setAttribute("font-weight", "700");
+          valueLabel.setAttribute("fill", color);
+          valueLabel.textContent = p.val;
+          svg.appendChild(valueLabel);
+        });
+      });
+
+      return svg;
+    }
+
     function renderMaterials() {
       materialsList.innerHTML = "";
       const todayKey = formatDateKey(today);
@@ -4141,7 +4548,36 @@
 
         const readNoteWrap = document.createElement("span");
         readNoteWrap.className = "setting-hint";
-        readNoteWrap.textContent = "(오늘 총 " + todayRead + "쪽)";
+        readNoteWrap.style.display = "inline-flex";
+        readNoteWrap.style.alignItems = "center";
+        readNoteWrap.style.gap = "3px";
+
+        const readNotePrefix = document.createElement("span");
+        readNotePrefix.textContent = "(오늘 총";
+
+        const readNoteInput = document.createElement("input");
+        readNoteInput.type = "number";
+        readNoteInput.className = "material-log-total-input";
+        readNoteInput.min = "0";
+        readNoteInput.value = todayRead;
+        readNoteInput.addEventListener("change", function () {
+          let val = parseInt(readNoteInput.value, 10);
+          if (isNaN(val) || val < 0) val = 0;
+          if (!readingBooks[index].dailyLog) readingBooks[index].dailyLog = {};
+          const prevLogged = readingBooks[index].dailyLog[todayKey] || 0;
+          const diff = val - prevLogged;
+          readingBooks[index].dailyLog[todayKey] = val;
+          readingBooks[index].currentPage = Math.max(0, Math.min(book.totalPages, book.currentPage + diff));
+          saveReadingBooks();
+          renderReadingBooks();
+        });
+
+        const readNoteSuffix = document.createElement("span");
+        readNoteSuffix.textContent = "쪽)";
+
+        readNoteWrap.appendChild(readNotePrefix);
+        readNoteWrap.appendChild(readNoteInput);
+        readNoteWrap.appendChild(readNoteSuffix);
 
         readRow.appendChild(readLabel);
         readRow.appendChild(readInput);
@@ -4160,6 +4596,231 @@
     }
 
     renderReadingBooks();
+
+    // ---- 독서 기록 보기 모달 (GitHub 잔디 스타일 농도 히트맵 + 책별 아코디언 + 전체 합산 + 스트릭) ----
+    const readingHistoryBtn = document.getElementById("reading-history-btn");
+    const readingHistoryOverlay = document.getElementById("reading-history-overlay");
+    const readingHistoryClose = document.getElementById("reading-history-close");
+    const readingHistoryList = document.getElementById("reading-history-list");
+
+    readingHistoryBtn.addEventListener("click", function () {
+      renderReadingHistoryList();
+      readingHistoryOverlay.classList.add("visible");
+    });
+
+    readingHistoryClose.addEventListener("click", function () {
+      readingHistoryOverlay.classList.remove("visible");
+    });
+
+    readingHistoryOverlay.addEventListener("click", function (event) {
+      if (event.target === readingHistoryOverlay) {
+        readingHistoryOverlay.classList.remove("visible");
+      }
+    });
+
+    // 하루에 읽은 쪽수 → 0~4단계 농도로 변환 (그 책에서 가장 많이 읽은 날을 기준으로 상대적으로 계산)
+    function pagesToLevel(pages, maxPages) {
+      if (!pages || pages <= 0 || maxPages <= 0) return 0;
+      const ratio = pages / maxPages;
+      if (ratio <= 0.25) return 1;
+      if (ratio <= 0.5) return 2;
+      if (ratio <= 0.75) return 3;
+      return 4;
+    }
+
+    const readingLevelOpacity = [0, 0.3, 0.55, 0.8, 1];
+
+    // dailyLog(날짜별 쪽수) 하나를 기준으로 월별 농도 히트맵 한 칸을 만듦
+    function buildReadingMonthHeatmap(dailyLog, color, year, month, maxPages) {
+      const wrap = document.createElement("div");
+
+      const label = document.createElement("div");
+      label.className = "setting-hint";
+      label.style.marginBottom = "6px";
+      label.textContent = year + "년 " + (month + 1) + "월";
+
+      const grid = document.createElement("div");
+      grid.className = "habit-heatmap";
+      grid.style.flex = "none";
+
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(year, month, d);
+        const pages = dailyLog[formatDateKey(cellDate)] || 0;
+        const level = pagesToLevel(pages, maxPages);
+        const cell = document.createElement("div");
+        cell.className = "heatmap-cell";
+        if (level > 0) {
+          cell.style.background = color;
+          cell.style.opacity = readingLevelOpacity[level];
+          cell.title = formatDateKey(cellDate) + " · " + pages + "쪽";
+        } else if (pages > 0) {
+          cell.title = formatDateKey(cellDate) + " · " + pages + "쪽";
+        }
+        grid.appendChild(cell);
+      }
+
+      wrap.appendChild(label);
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    // 기록이 시작된 달부터 이번 달까지 최신순으로 쌓아서 컨테이너에 채워 넣음
+    function fillReadingMonths(container, dailyLog, color) {
+      container.innerHTML = "";
+
+      const keys = Object.keys(dailyLog);
+      const maxPages = keys.reduce(function (max, key) {
+        return Math.max(max, dailyLog[key] || 0);
+      }, 0);
+
+      let cursorYear = today.getFullYear();
+      let cursorMonth = today.getMonth();
+
+      let earliestYear = cursorYear;
+      let earliestMonth = cursorMonth;
+      if (keys.length > 0) {
+        const earliestKey = keys.slice().sort()[0];
+        const parts = earliestKey.split("-");
+        earliestYear = parseInt(parts[0], 10);
+        earliestMonth = parseInt(parts[1], 10) - 1;
+      }
+
+      while (cursorYear > earliestYear || (cursorYear === earliestYear && cursorMonth >= earliestMonth)) {
+        container.appendChild(buildReadingMonthHeatmap(dailyLog, color, cursorYear, cursorMonth, maxPages));
+        cursorMonth--;
+        if (cursorMonth < 0) {
+          cursorMonth = 11;
+          cursorYear--;
+        }
+      }
+    }
+
+    // 오늘부터 거슬러 올라가며 하루라도 읽은 기록이 끊기기 전까지 연속 일수 계산 (오늘은 아직 안 읽었어도 감점하지 않음)
+    function calculateReadingStreak(dailyLog) {
+      let cursor = new Date(today);
+      if (!(dailyLog[formatDateKey(cursor)] > 0)) {
+        cursor = addDays(cursor, -1);
+      }
+      let streak = 0;
+      while (dailyLog[formatDateKey(cursor)] > 0) {
+        streak++;
+        cursor = addDays(cursor, -1);
+      }
+      return streak;
+    }
+
+    // 모든 책의 dailyLog를 날짜 기준으로 합산 (오늘 하루 총 몇 쪽 읽었는지)
+    function buildCombinedReadingLog() {
+      const combined = {};
+      readingBooks.forEach(function (book) {
+        const log = book.dailyLog || {};
+        Object.keys(log).forEach(function (key) {
+          combined[key] = (combined[key] || 0) + log[key];
+        });
+      });
+      return combined;
+    }
+
+    // 책 하나(또는 전체 합산)를 아코디언 한 줄로 만듦 — 헤더를 누르면 그 아래로 히트맵 + 스트릭이 펼쳐짐
+    function buildReadingHistoryItem(name, color, dailyLog) {
+      const item = document.createElement("div");
+      item.className = "habit-history-item";
+
+      const header = document.createElement("div");
+      header.className = "habit-history-item-header";
+
+      const dot = document.createElement("span");
+      dot.className = "habit-history-dot";
+      dot.style.background = color;
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "habit-history-name";
+      nameEl.textContent = name;
+
+      const totalDays = Object.keys(dailyLog).filter(function (key) {
+        return dailyLog[key] > 0;
+      }).length;
+
+      const count = document.createElement("span");
+      count.className = "habit-history-count";
+      count.textContent = "총 " + totalDays + "일";
+
+      const arrow = document.createElement("span");
+      arrow.className = "habit-history-arrow";
+      arrow.textContent = "▶";
+
+      header.appendChild(dot);
+      header.appendChild(nameEl);
+      header.appendChild(count);
+      header.appendChild(arrow);
+
+      const body = document.createElement("div");
+      body.className = "habit-history-item-body";
+      let loaded = false;
+
+      header.addEventListener("click", function () {
+        const willOpen = !item.classList.contains("open");
+        item.classList.toggle("open", willOpen);
+        if (willOpen && !loaded) {
+          const streak = document.createElement("div");
+          streak.className = "habit-streak";
+
+          const streakNumber = document.createElement("div");
+          streakNumber.className = "streak-number";
+          streakNumber.textContent = calculateReadingStreak(dailyLog);
+          streakNumber.style.color = color;
+
+          const streakLabel = document.createElement("div");
+          streakLabel.className = "streak-label";
+          streakLabel.textContent = "일 연속";
+
+          streak.appendChild(streakNumber);
+          streak.appendChild(streakLabel);
+
+          const monthsWrap = document.createElement("div");
+          monthsWrap.style.flex = "1";
+          fillReadingMonths(monthsWrap, dailyLog, color);
+
+          const row = document.createElement("div");
+          row.style.display = "flex";
+          row.style.gap = "12px";
+          row.appendChild(streak);
+          row.appendChild(monthsWrap);
+
+          body.appendChild(row);
+          loaded = true;
+        }
+      });
+
+      item.appendChild(header);
+      item.appendChild(body);
+      return item;
+    }
+
+    function renderReadingHistoryList() {
+      readingHistoryList.innerHTML = "";
+
+      if (readingBooks.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "setting-hint";
+        empty.textContent = "책을 먼저 추가해주세요.";
+        readingHistoryList.appendChild(empty);
+        return;
+      }
+
+      // 맨 위: 모든 책을 합산한 "전체" 히트맵 (오늘 독서 습관 자체를 지켰는지 한눈에 보기 위함)
+      readingHistoryList.appendChild(
+        buildReadingHistoryItem("전체", "var(--blue)", buildCombinedReadingLog())
+      );
+
+      // 그 아래: 책별로 각자의 색으로 개별 히트맵
+      readingBooks.forEach(function (book) {
+        readingHistoryList.appendChild(
+          buildReadingHistoryItem(book.title === "" ? "(제목 없음)" : book.title, book.color, book.dailyLog || {})
+        );
+      });
+    }
 
     // ---- 오늘 할 일 (날짜별로 저장 — 그 날짜에서만 보임) ----
     const dailyTodoList = document.getElementById("daily-todo-items");
@@ -4352,6 +5013,37 @@
       localStorage.setItem("todos", JSON.stringify(todos));
     }
 
+    // 마감일까지 며칠 남았는지 계산 (지났으면 음수)
+    function daysUntilDeadline(deadlineStr) {
+      const deadlineDate = new Date(deadlineStr + "T00:00:00");
+      return Math.round((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    }
+
+    // 마감일이 다가올수록 0 → 100으로 커지는 긴급도 (7일 전부터 서서히 빨개지고, 당일/지남은 완전히 빨강)
+    const DEADLINE_URGENCY_WINDOW_DAYS = 7;
+    function computeDeadlineUrgency(deadlineStr) {
+      if (!deadlineStr) return 0;
+      const diffDays = daysUntilDeadline(deadlineStr);
+      if (diffDays >= DEADLINE_URGENCY_WINDOW_DAYS) return 0;
+      if (diffDays <= 0) return 100;
+      return Math.round((1 - diffDays / DEADLINE_URGENCY_WINDOW_DAYS) * 100);
+    }
+
+    // 마감일 배지에 보여줄 텍스트 ("10/5 · D-3", "10/5 · D-DAY", "10/5 · 2일 지남")
+    function formatDeadlineLabel(deadlineStr) {
+      const deadlineDate = new Date(deadlineStr + "T00:00:00");
+      const dateLabel = (deadlineDate.getMonth() + 1) + "/" + deadlineDate.getDate();
+      const diffDays = daysUntilDeadline(deadlineStr);
+      if (diffDays > 0) return dateLabel + " · D-" + diffDays;
+      if (diffDays === 0) return dateLabel + " · D-DAY";
+      return dateLabel + " · " + Math.abs(diffDays) + "일 지남";
+    }
+
+    // 긴급도(0~100)를 무채색→빨강 색상으로 변환 (color-mix 지원 브라우저 기준)
+    function urgencyToColor(urgency, baseColorVar) {
+      return "color-mix(in srgb, " + baseColorVar + " " + (100 - urgency) + "%, #d64545 " + urgency + "%)";
+    }
+
     let hideCompleted = false;
 
     const hideCompletedBtn = document.getElementById("hide-completed-btn");
@@ -4434,6 +5126,57 @@
         percentSuffix.className = "progress-percent-suffix";
         percentSuffix.textContent = "%";
 
+        // 마감일: 없으면 "+ 마감일" 트리거, 있으면 "10/5 · D-3" 형태 배지 (둘 다 클릭하면 날짜 입력창으로 바뀜)
+        const deadlineWrap = document.createElement("span");
+        deadlineWrap.style.display = "flex";
+        deadlineWrap.style.flex = "none";
+
+        function renderDeadlineControl() {
+          deadlineWrap.innerHTML = "";
+
+          function openDeadlineInput(currentValue) {
+            const input = document.createElement("input");
+            input.type = "date";
+            input.className = "todo-deadline-input";
+            input.value = currentValue || "";
+            deadlineWrap.innerHTML = "";
+            deadlineWrap.appendChild(input);
+            input.focus();
+
+            let committed = false;
+            function commit() {
+              if (committed) return;
+              committed = true;
+              todos[index].deadline = input.value || "";
+              saveTodos();
+              renderDeadlineControl();
+              renderBarColor();
+            }
+            input.addEventListener("change", commit);
+            input.addEventListener("blur", commit);
+          }
+
+          if (todo.deadline) {
+            const badge = document.createElement("span");
+            badge.className = "todo-deadline-badge";
+            badge.textContent = formatDeadlineLabel(todo.deadline);
+            badge.style.color = urgencyToColor(computeDeadlineUrgency(todo.deadline), "var(--muted)");
+            badge.addEventListener("click", function () {
+              openDeadlineInput(todo.deadline);
+            });
+            deadlineWrap.appendChild(badge);
+          } else {
+            const trigger = document.createElement("span");
+            trigger.className = "todo-deadline-trigger";
+            trigger.textContent = "+ 마감일";
+            trigger.addEventListener("click", function () {
+              openDeadlineInput(formatDateKey(addDays(today, 1)));
+            });
+            deadlineWrap.appendChild(trigger);
+          }
+        }
+        renderDeadlineControl();
+
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "×";
         deleteBtn.addEventListener("click", function () {
@@ -4442,6 +5185,7 @@
 
         row.appendChild(checkbox);
         row.appendChild(textInput);
+        row.appendChild(deadlineWrap);
         row.appendChild(progressInput);
         row.appendChild(percentSuffix);
         row.appendChild(deleteBtn);
@@ -4452,6 +5196,11 @@
         barFill.className = "progress-bar-fill";
         barFill.style.width = (todo.progress || 0) + "%";
         barTrack.appendChild(barFill);
+
+        function renderBarColor() {
+          barFill.style.background = urgencyToColor(computeDeadlineUrgency(todo.deadline), "var(--blue-light)");
+        }
+        renderBarColor();
 
         li.appendChild(row);
         li.appendChild(barTrack);
