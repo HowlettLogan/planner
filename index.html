@@ -13,9 +13,21 @@
       --blue: oklch(0.55 0.14 255);
       --blue-bg: oklch(0.94 0.03 255);
       --blue-light: oklch(0.75 0.09 255);
+      --olive: oklch(0.46 0.06 118);
+      --olive-bg: oklch(0.92 0.035 118);
+      --red: #d64545;
+      --red-bg: oklch(0.94 0.03 25);
     }
 
     * { box-sizing: border-box; }
+
+    button {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      font-family: inherit;
+      border-radius: 0;
+    }
 
     body {
       margin: 0;
@@ -425,6 +437,39 @@
       border-radius: 6px;
       padding: 2px 4px;
       outline: none;
+    }
+
+    .action-modal-choice-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font: 600 14px system-ui, sans-serif;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+
+    .action-modal-choice-btn:hover {
+      filter: brightness(0.97);
+    }
+
+    .action-modal-choice-btn.complete {
+      background: var(--olive-bg);
+      color: var(--olive);
+    }
+
+    .action-modal-choice-btn.delete {
+      background: var(--red-bg);
+      color: var(--red);
+    }
+
+    .action-modal-confirm-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 9px 18px;
+      font: 600 13px system-ui, sans-serif;
+      cursor: pointer;
+      color: #fff;
     }
 
     .tri-check {
@@ -1851,10 +1896,53 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="material-action-overlay">
+    <div class="modal-panel" style="width:320px;">
+      <div class="card-title" style="font-size:16px;" id="material-action-title"></div>
+
+      <div id="material-action-choice" style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+        <div style="display:flex; gap:8px;">
+          <button id="material-action-complete-btn" class="action-modal-choice-btn complete">완료</button>
+          <button id="material-action-delete-btn" class="action-modal-choice-btn delete">삭제</button>
+        </div>
+        <span class="habit-remove" id="material-action-cancel" style="opacity:0.6; align-self:center;">취소</span>
+      </div>
+
+      <div id="material-action-confirm-step" style="display:none;">
+        <div id="material-action-confirm-message" class="setting-hint" style="margin-top:8px; line-height:1.5;"></div>
+        <div style="display:flex; gap:8px; margin-top:18px; justify-content:flex-end;">
+          <span class="habit-remove" id="material-action-back" style="opacity:0.6; align-self:center;">뒤로</span>
+          <button id="material-action-confirm-btn" class="action-modal-confirm-btn">확인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="archive-overlay">
+    <div class="modal-panel" style="width:400px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title" style="font-size:16px;" id="archive-modal-title">완료한 자료</div>
+        <span class="modal-close" id="archive-close">×</span>
+      </div>
+      <div id="archive-list" style="display:flex; flex-direction:column; gap:4px; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="archive-delete-overlay">
+    <div class="modal-panel" style="width:320px;">
+      <div class="card-title" style="font-size:16px;">삭제하시겠어요?</div>
+      <div id="archive-delete-message" class="setting-hint" style="margin-top:8px; line-height:1.5;"></div>
+      <div style="display:flex; gap:8px; margin-top:18px; justify-content:flex-end;">
+        <span class="habit-remove" id="archive-delete-cancel" style="opacity:0.6; align-self:center;">취소</span>
+        <button id="archive-delete-confirm" class="action-modal-confirm-btn" style="background:#d64545;">삭제</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="reading-history-overlay">
     <div class="modal-panel">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="card-title" style="font-size:16px;">기록</div>
+        <div class="card-title" style="font-size:16px;">Streak</div>
         <span class="modal-close" id="reading-history-close">×</span>
       </div>
       <div id="reading-history-list" style="display:flex; flex-direction:column; gap:4px; margin-top:10px;"></div>
@@ -1875,7 +1963,7 @@
   <div class="modal-overlay" id="material-history-overlay">
     <div class="modal-panel" style="width:880px; max-width:95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="card-title" style="font-size:18px;">기록</div>
+        <div class="card-title" style="font-size:18px;">Trends</div>
         <span class="modal-close" id="material-history-close">×</span>
       </div>
       <div class="setting-hint" style="margin-top:8px;">비교하고 싶은 자료를 골라주세요 (여러 개 선택 가능해요)</div>
@@ -1909,9 +1997,6 @@
         <div class="card today-panel">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div class="card-title" id="schedule-panel-title"></div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="habit-remove" id="schedule-reset-btn" style="opacity:0.7;">초기화</span>
-            </div>
           </div>
           <div id="schedule-items" style="display:flex; flex-direction:column; gap:8px;"></div>
           <div style="display:flex; gap:8px; margin-top:2px;">
@@ -1920,11 +2005,22 @@
           </div>
         </div>
 
+        <!-- 하루 모니터링: 체크 여부와 상관없이, 그 날 세운 계획을 카테고리별로 한 막대에 시각화 -->
+        <div class="card" id="day-monitor-card">
+          <div id="day-monitor-legend" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
+          <div class="stats-bar-track">
+            <div class="stats-bar" id="day-monitor-bar"></div>
+          </div>
+        </div>
+
         <!-- 학습 자료 진행률: 자리만 -->
         <div class="card" id="materials-progress-card">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div class="section-title">학습 진행률</div>
-            <span class="habit-remove" id="materials-history-btn" style="opacity:0.7;">기록</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="habit-remove" id="archive-materials-btn" style="opacity:0.7;">완료한 자료</span>
+              <span class="habit-remove" id="materials-history-btn" style="opacity:0.7;">Trends</span>
+            </div>
           </div>
           <div id="materials-list" style="display:flex; flex-direction:column; gap:16px; margin-top:8px;"></div>
           <div class="add-trigger" id="material-add-trigger">+ 자료 추가</div>
@@ -1972,7 +2068,10 @@
         <div class="card" id="reading-progress-card">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div class="section-title">독서 진행률</div>
-            <span class="habit-remove" id="reading-history-btn" style="opacity:0.7;">기록</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="habit-remove" id="archive-reading-btn" style="opacity:0.7;">완료한 책</span>
+              <span class="habit-remove" id="reading-history-btn" style="opacity:0.7;">Streak</span>
+            </div>
           </div>
           <div id="reading-list" style="display:flex; flex-direction:column; gap:16px; margin-top:8px;"></div>
           <div class="add-trigger" id="reading-add-trigger">+ 책 추가</div>
@@ -2185,26 +2284,6 @@
     categories.forEach(function (cat) {
       if (!cat.subcategories) cat.subcategories = [];
     });
-
-    // ⚠️ 임시 테스트 코드 — 학습 자료 기록보기 그래프 확인용, 확인 끝나면 제거 예정
-    if (!localStorage.getItem("materialsTestSeeded")) {
-      const existingMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-      if (existingMaterials.length > 0) {
-        existingMaterials.forEach(function (m) {
-          if (!m.dailyLog) m.dailyLog = {};
-          let total = 0;
-          for (let i = 9; i >= 0; i--) {
-            const key = formatDateKey(addDays(today, -i));
-            const amount = 5 + Math.floor(Math.random() * 26); // 5~30 랜덤
-            m.dailyLog[key] = amount;
-            total += amount;
-          }
-          m.currentPage = m.totalPages > 0 ? Math.min(m.totalPages, total) : total;
-        });
-        localStorage.setItem("materials", JSON.stringify(existingMaterials));
-      }
-      localStorage.setItem("materialsTestSeeded", "true");
-    }
 
     // 주간 카드에 보이는 요약 태그 — 하루 일정표(schedule)와는 별개의 저장소
     function loadTagsFor(date) {
@@ -2665,6 +2744,7 @@
       });
 
       renderCategoryStats();
+      renderDayMonitor();
     }
 
     // ---- 카테고리별 통계 (일별/주별/월별) ----
@@ -2713,6 +2793,56 @@
         }
 
         return { item: item, minutes: minutes };
+      });
+    }
+
+    // ---- 하루 모니터링 (체크 여부와 상관없이, 그 날 세운 계획을 카테고리별로 한 막대에 시각화) ----
+    const dayMonitorBar = document.getElementById("day-monitor-bar");
+    const dayMonitorLegend = document.getElementById("day-monitor-legend");
+
+    function renderDayMonitor() {
+      dayMonitorBar.innerHTML = "";
+      dayMonitorLegend.innerHTML = "";
+
+      const durations = getItemDurations(schedule);
+      const totals = {};
+      let grandTotal = 0;
+
+      durations.forEach(function (d) {
+        if (!d.item.category || d.minutes === 0) return; // 휴식 블록·미분류는 제외 (기존 통계 카드와 동일한 기준)
+        totals[d.item.category] = (totals[d.item.category] || 0) + d.minutes / 60;
+        grandTotal += d.minutes / 60;
+      });
+
+      if (grandTotal === 0) return; // 계획된 일정이 없으면 빈 막대만 남김
+
+      categories.forEach(function (cat) {
+        const hours = totals[cat.name];
+        if (!hours) return;
+
+        const segment = document.createElement("div");
+        segment.className = "stats-bar-segment";
+        segment.style.width = (hours / grandTotal * 100) + "%";
+        segment.style.background = cat.color;
+        segment.style.color = "#000";
+        segment.textContent = formatHours(hours) + "h";
+        dayMonitorBar.appendChild(segment);
+
+        const legendItem = document.createElement("div");
+        legendItem.className = "stats-legend-item";
+        legendItem.style.background = cat.color + "47";
+        legendItem.style.color = "var(--text)";
+
+        const dot = document.createElement("span");
+        dot.className = "stats-legend-dot";
+        dot.style.background = cat.color;
+
+        const label = document.createElement("span");
+        label.textContent = cat.name;
+
+        legendItem.appendChild(dot);
+        legendItem.appendChild(label);
+        dayMonitorLegend.appendChild(legendItem);
       });
     }
 
@@ -3371,25 +3501,6 @@
       taskInputs[taskInputs.length - 1].focus();
     });
 
-    const scheduleResetBtn = document.getElementById("schedule-reset-btn");
-    scheduleResetBtn.addEventListener("click", function () {
-      if (scheduleResetBtn.classList.contains("confirm")) {
-        schedule = generateDefaultSchedule();
-        saveScheduleFor(selectedDate, schedule);
-        renderSchedule();
-        renderWeek();
-        scheduleResetBtn.classList.remove("confirm");
-        scheduleResetBtn.textContent = "초기화";
-        return;
-      }
-      scheduleResetBtn.classList.add("confirm");
-      scheduleResetBtn.textContent = "확인?";
-      setTimeout(function () {
-        scheduleResetBtn.classList.remove("confirm");
-        scheduleResetBtn.textContent = "초기화";
-      }, 2500);
-    });
-
     const scheduleSortBtn = document.getElementById("schedule-sort-btn");
     scheduleSortBtn.addEventListener("click", function () {
       schedule.sort(function (a, b) {
@@ -3410,6 +3521,8 @@
     const habitColorPalette = ["#3b6fd6", "#3f9142", "#c0862a", "#a1477a", "#3a8f8f", "#8a5fd6"];
     // 학습 자료는 습관보다 차분한 파스텔 톤으로 구분
     const materialColorPalette = ["#8FBCBB", "#88C0D0", "#81A1C1", "#7195B5", "#6389A9"];
+    // Trends 그래프 전용 고대비 팔레트 (진행률 바 등 다른 곳의 파스텔 톤과는 별개, 여러 자료를 겹쳐도 구분이 잘 되게)
+    const trendsColorPalette = ["#2a78d6", "#eb6834", "#1baf7a", "#c98500", "#d55181", "#4a3aa7", "#008300", "#e34948"];
 
     // ---- 삭제된 습관 휴지통 (시간 제한 없이 복구 가능) ----
     const habitTrashList = document.getElementById("habit-trash-list");
@@ -3857,7 +3970,6 @@
       paceRow.innerHTML = "";
 
       if (totalPages > 0 && remaining === 0) {
-        paceRow.textContent = "완독했어요 🎉";
         return;
       }
 
@@ -3940,8 +4052,10 @@
       }
 
       materials.forEach(function (material, index) {
-        const color = material.color || materialColorPalette[index % materialColorPalette.length];
-        const isActive = selectedMaterialIndexes.indexOf(index) !== -1;
+        const pos = selectedMaterialIndexes.indexOf(index);
+        const isActive = pos !== -1;
+        // 선택 순서에 따라 Trends 그래프와 똑같은 색을 미리 보여줌 (아직 선택 안 했으면 중립 회색)
+        const color = isActive ? trendsColorPalette[pos % trendsColorPalette.length] : "#B4B2A9";
 
         const btn = document.createElement("button");
         btn.type = "button";
@@ -3974,6 +4088,23 @@
       });
     }
 
+    // 자료 하나의 시작일 + 오늘 기준 며칠째인지 계산 (기록이 없으면 null)
+    function computeMaterialStartInfo(material) {
+      const dates = Object.keys(material.dailyLog || {}).filter(function (d) {
+        return material.dailyLog[d] > 0;
+      }).sort();
+      if (dates.length === 0) return null;
+      const parts = dates[0].split("-");
+      const start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const elapsed = Math.floor((today - start) / (24 * 60 * 60 * 1000)) + 1;
+      return {
+        year: start.getFullYear(),
+        month: start.getMonth() + 1,
+        day: start.getDate(),
+        elapsed: elapsed
+      };
+    }
+
     // 선택된 자료들의 dailyLog를 한 그래프 위에 색으로 구분해서 겹쳐 그림
     function renderMaterialHistoryChart() {
       materialHistoryChart.innerHTML = "";
@@ -3986,35 +4117,26 @@
 
       const selected = selectedMaterialIndexes.map(function (i) { return materials[i]; });
 
-      // 선택된 자료들 중 가장 이른 시작일 + 가장 오래(길게) 기록한 경과일수를 안내문에 표시
-      let earliestDate = null;
-      let maxElapsed = 0;
+      // 선택된 자료들 중 하나라도 기록이 있는지만 확인 (그래프를 그릴 수 있는지 판단용)
+      let hasAnyLog = false;
       selected.forEach(function (material) {
-        const dates = Object.keys(material.dailyLog || {}).filter(function (d) { return material.dailyLog[d] > 0; }).sort();
-        if (dates.length === 0) return;
-        const parts = dates[0].split("-");
-        const start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-        if (!earliestDate || start < earliestDate) earliestDate = start;
-        const elapsed = Math.floor((today - start) / (24 * 60 * 60 * 1000)) + 1;
-        if (elapsed > maxElapsed) maxElapsed = elapsed;
+        const dates = Object.keys(material.dailyLog || {}).filter(function (d) { return material.dailyLog[d] > 0; });
+        if (dates.length > 0) hasAnyLog = true;
       });
 
-      if (!earliestDate) {
+      if (!hasAnyLog) {
         materialHistoryMeta.textContent = "선택한 자료에 아직 기록이 없어요.";
         return;
       }
 
-      const ey = earliestDate.getFullYear(), em = earliestDate.getMonth() + 1, ed = earliestDate.getDate();
-      materialHistoryMeta.textContent =
-        "가장 빠른 시작일 " + ey + "년 " + em + "월 " + ed + "일 · 가장 길게 기록한 자료 기준 " + maxElapsed + "일째";
+      materialHistoryMeta.textContent = "";
 
-      const chart = buildMultiDailyLogChart(selected);
+      const chart = buildMultiDailyLogChart(selected, computeGlobalMaterialMax());
       if (chart) materialHistoryChart.appendChild(chart);
 
       // 범례
       selected.forEach(function (material, i) {
-        const idx = selectedMaterialIndexes[i];
-        const color = material.color || materialColorPalette[idx % materialColorPalette.length];
+        const color = trendsColorPalette[i % trendsColorPalette.length];
         const item = document.createElement("div");
         item.style.display = "flex";
         item.style.alignItems = "center";
@@ -4030,7 +4152,21 @@
         dot.style.display = "inline-block";
 
         const label = document.createElement("span");
-        label.textContent = material.title || "이름 없는 자료";
+        label.style.display = "flex";
+        label.style.flexDirection = "column";
+
+        const nameLine = document.createElement("span");
+        nameLine.textContent = material.title || "이름 없는 자료";
+        label.appendChild(nameLine);
+
+        const startInfo = computeMaterialStartInfo(material);
+        if (startInfo) {
+          const infoLine = document.createElement("span");
+          infoLine.style.fontSize = "11px";
+          infoLine.style.opacity = "0.75";
+          infoLine.textContent = startInfo.year + "." + startInfo.month + "." + startInfo.day + " 시작 · " + startInfo.elapsed + "일째";
+          label.appendChild(infoLine);
+        }
 
         item.appendChild(dot);
         item.appendChild(label);
@@ -4039,7 +4175,19 @@
     }
 
     // 여러 자료의 dailyLog를 한 SVG 위에 각자 색으로 겹쳐 그림 (x축은 선택된 자료들의 날짜를 합친 것)
-    function buildMultiDailyLogChart(materialsToShow) {
+    // 켜져 있는 자료가 몇 개든 상관없이 y축이 흔들리지 않도록, 모달에 있는 전체 자료 기준으로 최댓값을 미리 고정해둠
+    function computeGlobalMaterialMax() {
+      let maxVal = 1;
+      materials.forEach(function (material) {
+        Object.keys(material.dailyLog || {}).forEach(function (d) {
+          const val = material.dailyLog[d] || 0;
+          if (val > maxVal) maxVal = val;
+        });
+      });
+      return maxVal;
+    }
+
+    function buildMultiDailyLogChart(materialsToShow, fixedMaxVal) {
       const dateSet = {};
       materialsToShow.forEach(function (material) {
         Object.keys(material.dailyLog || {}).forEach(function (d) {
@@ -4061,13 +4209,15 @@
       const width = padLeft + plotW + padRight;
       const plotH = height - padTop - padBottom;
 
-      let maxVal = 1;
-      materialsToShow.forEach(function (material) {
-        dates.forEach(function (d) {
-          const val = (material.dailyLog && material.dailyLog[d]) || 0;
-          if (val > maxVal) maxVal = val;
+      let maxVal = fixedMaxVal || 1;
+      if (!fixedMaxVal) {
+        materialsToShow.forEach(function (material) {
+          dates.forEach(function (d) {
+            const val = (material.dailyLog && material.dailyLog[d]) || 0;
+            if (val > maxVal) maxVal = val;
+          });
         });
-      });
+      }
 
       function xAt(i) {
         return dates.length <= 1 ? padLeft : padLeft + (i / (dates.length - 1)) * plotW;
@@ -4105,25 +4255,46 @@
       });
 
       // 자료별로 선 + 점 + 값 라벨을 각자 색으로 그림 (기록 없는 날은 건너뜀)
+      // 두 기록 사이 실제 날짜 간격이 이 값을 넘으면 선을 끊어서, 오래 쉬었다가 다시 기록한 걸 왜곡 없이 보여줌
+      const LINE_BREAK_GAP_DAYS = 14;
+
       materialsToShow.forEach(function (material, mi) {
-        const idx = selectedMaterialIndexes[mi];
-        const color = material.color || materialColorPalette[idx % materialColorPalette.length];
+        const color = trendsColorPalette[mi % trendsColorPalette.length];
 
         const loggedPoints = [];
         dates.forEach(function (d, i) {
           const val = (material.dailyLog && material.dailyLog[d]) || 0;
-          if (val > 0) loggedPoints.push({ i: i, val: val });
+          if (val > 0) loggedPoints.push({ i: i, val: val, date: d });
         });
         if (loggedPoints.length === 0) return;
 
-        const points = loggedPoints.map(function (p) { return xAt(p.i) + "," + yAt(p.val); }).join(" ");
-        const polyline = document.createElementNS(svgNS, "polyline");
-        polyline.setAttribute("points", points);
-        polyline.setAttribute("fill", "none");
-        polyline.setAttribute("stroke", color);
-        polyline.setAttribute("stroke-width", "2");
-        polyline.setAttribute("stroke-linejoin", "round");
-        svg.appendChild(polyline);
+        // 실제 날짜 간격이 기준을 넘는 지점마다 구간을 나눠서 각각 따로 선을 그림
+        const segments = [[loggedPoints[0]]];
+        for (let k = 1; k < loggedPoints.length; k++) {
+          const prevParts = loggedPoints[k - 1].date.split("-");
+          const currParts = loggedPoints[k].date.split("-");
+          const prevDate = new Date(parseInt(prevParts[0], 10), parseInt(prevParts[1], 10) - 1, parseInt(prevParts[2], 10));
+          const currDate = new Date(parseInt(currParts[0], 10), parseInt(currParts[1], 10) - 1, parseInt(currParts[2], 10));
+          const gapDays = Math.round((currDate - prevDate) / (24 * 60 * 60 * 1000));
+          if (gapDays > LINE_BREAK_GAP_DAYS) {
+            segments.push([loggedPoints[k]]);
+          } else {
+            segments[segments.length - 1].push(loggedPoints[k]);
+          }
+        }
+
+        segments.forEach(function (segment) {
+          if (segment.length >= 2) {
+            const points = segment.map(function (p) { return xAt(p.i) + "," + yAt(p.val); }).join(" ");
+            const polyline = document.createElementNS(svgNS, "polyline");
+            polyline.setAttribute("points", points);
+            polyline.setAttribute("fill", "none");
+            polyline.setAttribute("stroke", color);
+            polyline.setAttribute("stroke-width", "2");
+            polyline.setAttribute("stroke-linejoin", "round");
+            svg.appendChild(polyline);
+          }
+        });
 
         loggedPoints.forEach(function (p) {
           const dot = document.createElementNS(svgNS, "circle");
@@ -4153,6 +4324,7 @@
       const todayKey = formatDateKey(today);
 
       materials.forEach(function (material, index) {
+        if (material.completed) return; // 완료 보관함으로 넘어간 자료는 활성 목록에서 숨김
         const unit = material.unit || "쪽";
         // 기존에 저장된 자료(색이 없던 것들)는 자동으로 색을 하나 배정
         const color = material.color || materialColorPalette[index % materialColorPalette.length];
@@ -4176,27 +4348,7 @@
         removeBtn.className = "material-remove";
         removeBtn.textContent = "×";
         removeBtn.addEventListener("click", function () {
-          if (removeBtn.classList.contains("confirm")) {
-            const removedIndex = index;
-            const removedMaterial = materials[removedIndex];
-
-            materials.splice(removedIndex, 1);
-            saveMaterials();
-            renderMaterials();
-
-            showUndoToast("학습 자료를 삭제했어요.", function () {
-              materials.splice(removedIndex, 0, removedMaterial);
-              saveMaterials();
-              renderMaterials();
-            });
-            return;
-          }
-          removeBtn.classList.add("confirm");
-          removeBtn.textContent = "삭제?";
-          setTimeout(function () {
-            removeBtn.classList.remove("confirm");
-            removeBtn.textContent = "×";
-          }, 2500);
+          openMaterialActionModal("material", index);
         });
 
         header.appendChild(title);
@@ -4390,6 +4542,7 @@
       const todayKey = formatDateKey(today);
 
       readingBooks.forEach(function (book, index) {
+        if (book.completed) return; // 완료 보관함으로 넘어간 책은 활성 목록에서 숨김
         const color = book.color || materialColorPalette[index % materialColorPalette.length];
 
         const item = document.createElement("div");
@@ -4411,27 +4564,7 @@
         removeBtn.className = "material-remove";
         removeBtn.textContent = "×";
         removeBtn.addEventListener("click", function () {
-          if (removeBtn.classList.contains("confirm")) {
-            const removedIndex = index;
-            const removedBook = readingBooks[removedIndex];
-
-            readingBooks.splice(removedIndex, 1);
-            saveReadingBooks();
-            renderReadingBooks();
-
-            showUndoToast("책을 삭제했어요.", function () {
-              readingBooks.splice(removedIndex, 0, removedBook);
-              saveReadingBooks();
-              renderReadingBooks();
-            });
-            return;
-          }
-          removeBtn.classList.add("confirm");
-          removeBtn.textContent = "삭제?";
-          setTimeout(function () {
-            removeBtn.classList.remove("confirm");
-            removeBtn.textContent = "×";
-          }, 2500);
+          openMaterialActionModal("reading", index);
         });
 
         header.appendChild(title);
@@ -4596,6 +4729,283 @@
     }
 
     renderReadingBooks();
+
+    // ---- 완료/삭제 선택 모달 (자료 X 버튼 → 선택 → 한 번 더 확인 후 실행, 학습 자료/독서 공용) ----
+    const materialActionOverlay = document.getElementById("material-action-overlay");
+    const materialActionTitle = document.getElementById("material-action-title");
+    const materialActionChoice = document.getElementById("material-action-choice");
+    const materialActionCompleteBtn = document.getElementById("material-action-complete-btn");
+    const materialActionDeleteBtn = document.getElementById("material-action-delete-btn");
+    const materialActionCancel = document.getElementById("material-action-cancel");
+    const materialActionConfirmStep = document.getElementById("material-action-confirm-step");
+    const materialActionConfirmMessage = document.getElementById("material-action-confirm-message");
+    const materialActionConfirmBtn = document.getElementById("material-action-confirm-btn");
+    const materialActionBack = document.getElementById("material-action-back");
+
+    let materialActionPending = null; // { kind: "material"|"reading", index, action: "complete"|"delete" }
+
+    function openMaterialActionModal(kind, index) {
+      const list = kind === "material" ? materials : readingBooks;
+      const item = list[index];
+      materialActionPending = { kind: kind, index: index, action: null };
+      materialActionTitle.textContent = "\"" + (item.title || (kind === "material" ? "(제목 없음)" : "(제목 없음)")) + "\"을(를) 어떻게 할까요?";
+      materialActionChoice.style.display = "flex";
+      materialActionConfirmStep.style.display = "none";
+      materialActionOverlay.classList.add("visible");
+    }
+
+    function closeMaterialActionModal() {
+      materialActionPending = null;
+      materialActionOverlay.classList.remove("visible");
+    }
+
+    function showMaterialActionConfirmStep(action) {
+      materialActionPending.action = action;
+      materialActionChoice.style.display = "none";
+      materialActionConfirmStep.style.display = "block";
+      if (action === "complete") {
+        materialActionConfirmMessage.textContent = "완료 처리하면 목록에서 사라지고, \"완료한 기록물\" 보관함에서 다시 볼 수 있어요.";
+        materialActionConfirmBtn.style.background = "var(--olive)";
+        materialActionConfirmBtn.textContent = "완료 처리";
+      } else {
+        materialActionConfirmMessage.textContent = "삭제하면 기록이 모두 사라져요. (잠깐 되돌릴 수 있는 토스트가 떠요)";
+        materialActionConfirmBtn.style.background = "var(--red)";
+        materialActionConfirmBtn.textContent = "삭제";
+      }
+    }
+
+    materialActionCompleteBtn.addEventListener("click", function () {
+      showMaterialActionConfirmStep("complete");
+    });
+
+    materialActionDeleteBtn.addEventListener("click", function () {
+      showMaterialActionConfirmStep("delete");
+    });
+
+    materialActionCancel.addEventListener("click", closeMaterialActionModal);
+
+    materialActionBack.addEventListener("click", function () {
+      materialActionChoice.style.display = "flex";
+      materialActionConfirmStep.style.display = "none";
+    });
+
+    materialActionOverlay.addEventListener("click", function (event) {
+      if (event.target === materialActionOverlay) closeMaterialActionModal();
+    });
+
+    materialActionConfirmBtn.addEventListener("click", function () {
+      if (!materialActionPending) return;
+      const kind = materialActionPending.kind;
+      const index = materialActionPending.index;
+      const list = kind === "material" ? materials : readingBooks;
+      const save = kind === "material" ? saveMaterials : saveReadingBooks;
+      const render = kind === "material" ? renderMaterials : renderReadingBooks;
+
+      if (materialActionPending.action === "complete") {
+        list[index].completed = true;
+        list[index].completedAt = formatDateKey(today);
+        save();
+        render();
+        closeMaterialActionModal();
+        return;
+      }
+
+      // 삭제: 기존 되돌리기 토스트 패턴 그대로 사용
+      const removedIndex = index;
+      const removedItem = list[removedIndex];
+      list.splice(removedIndex, 1);
+      save();
+      render();
+      closeMaterialActionModal();
+
+      showUndoToast((kind === "material" ? "학습 자료를" : "책을") + " 삭제했어요.", function () {
+        list.splice(removedIndex, 0, removedItem);
+        save();
+        render();
+      });
+    });
+
+    // ---- 완료한 자료 / 완료한 책 보관함 (완료일 최신순, 클릭 시 농도 히트맵) ----
+    const archiveMaterialsBtn = document.getElementById("archive-materials-btn");
+    const archiveReadingBtn = document.getElementById("archive-reading-btn");
+    const archiveOverlay = document.getElementById("archive-overlay");
+    const archiveModalTitle = document.getElementById("archive-modal-title");
+    const archiveClose = document.getElementById("archive-close");
+    const archiveList = document.getElementById("archive-list");
+
+    let currentArchiveKind = "material";
+
+    archiveMaterialsBtn.addEventListener("click", function () {
+      currentArchiveKind = "material";
+      archiveModalTitle.textContent = "완료한 자료";
+      renderArchiveList();
+      archiveOverlay.classList.add("visible");
+    });
+
+    archiveReadingBtn.addEventListener("click", function () {
+      currentArchiveKind = "reading";
+      archiveModalTitle.textContent = "완료한 책";
+      renderArchiveList();
+      archiveOverlay.classList.add("visible");
+    });
+
+    archiveClose.addEventListener("click", function () {
+      archiveOverlay.classList.remove("visible");
+    });
+
+    archiveOverlay.addEventListener("click", function (event) {
+      if (event.target === archiveOverlay) archiveOverlay.classList.remove("visible");
+    });
+
+    // 첫 기록일(dailyLog 최초 날짜)부터 완료일까지 며칠 걸렸는지 계산
+    function computeArchiveDuration(dailyLog, completedAt) {
+      const keys = Object.keys(dailyLog || {}).filter(function (k) { return dailyLog[k] > 0; }).sort();
+      if (keys.length === 0 || !completedAt) return null;
+      const startParts = keys[0].split("-");
+      const start = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10));
+      const endParts = completedAt.split("-");
+      const end = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10));
+      const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+      return { start: keys[0], days: Math.max(1, days) };
+    }
+
+    function buildArchiveItem(kind, item, index) {
+      const unit = kind === "material" ? (item.unit || "쪽") : "쪽";
+      const color = item.color || materialColorPalette[0];
+      const duration = computeArchiveDuration(item.dailyLog, item.completedAt);
+
+      const wrap = document.createElement("div");
+      wrap.className = "habit-history-item";
+
+      const header = document.createElement("div");
+      header.className = "habit-history-item-header";
+
+      const nameCol = document.createElement("span");
+      nameCol.style.flex = "1";
+      nameCol.style.display = "flex";
+      nameCol.style.flexDirection = "column";
+      nameCol.style.gap = "3px";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "habit-history-name";
+      nameEl.style.fontWeight = "700";
+      nameEl.textContent = item.title || "(제목 없음)";
+
+      const metaEl = document.createElement("span");
+      metaEl.className = "setting-hint";
+      metaEl.style.fontSize = "11px";
+      const totalText = "총 " + (item.totalPages || 0) + unit;
+      const durationText = duration
+        ? (duration.start.replace(/-/g, ".") + " ~ " + item.completedAt.replace(/-/g, ".") + " · " + duration.days + "일 만에 완료")
+        : "완료일 " + (item.completedAt || "").replace(/-/g, ".");
+      metaEl.textContent = totalText + " · " + durationText;
+
+      nameCol.appendChild(nameEl);
+      nameCol.appendChild(metaEl);
+
+      const arrow = document.createElement("span");
+      arrow.className = "habit-history-arrow";
+      arrow.textContent = "▶";
+
+      // 보관함 안에서 삭제 (× → 모달로 한 번 더 확인 → 실행). 아코디언 토글과 겹치지 않게 클릭 전파는 막음
+      const deleteBtn = document.createElement("span");
+      deleteBtn.className = "habit-remove";
+      deleteBtn.textContent = "×";
+      deleteBtn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openArchiveDeleteModal(kind, index, item.title);
+      });
+
+      header.appendChild(nameCol);
+      header.appendChild(deleteBtn);
+      header.appendChild(arrow);
+
+      const body = document.createElement("div");
+      body.className = "habit-history-item-body";
+      let loaded = false;
+
+      header.addEventListener("click", function () {
+        const willOpen = !wrap.classList.contains("open");
+        wrap.classList.toggle("open", willOpen);
+        if (willOpen && !loaded) {
+          fillReadingMonths(body, item.dailyLog || {}, color);
+          loaded = true;
+        }
+      });
+
+      wrap.appendChild(header);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    function renderArchiveList() {
+      archiveList.innerHTML = "";
+
+      const kind = currentArchiveKind;
+      const source = kind === "material" ? materials : readingBooks;
+
+      const entries = source
+        .map(function (it, i) { return { item: it, index: i }; })
+        .filter(function (entry) { return entry.item.completed; })
+        .sort(function (a, b) { return (b.item.completedAt || "").localeCompare(a.item.completedAt || ""); });
+
+      if (entries.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "setting-hint";
+        empty.textContent = kind === "material" ? "아직 완료 처리한 학습 자료가 없어요." : "아직 완료 처리한 책이 없어요.";
+        archiveList.appendChild(empty);
+        return;
+      }
+
+      entries.forEach(function (entry) {
+        archiveList.appendChild(buildArchiveItem(kind, entry.item, entry.index));
+      });
+    }
+
+    // ---- 보관함 안에서의 삭제 확인 모달 (× 클릭 → 모달로 한 번 더 확인 후 삭제) ----
+    const archiveDeleteOverlay = document.getElementById("archive-delete-overlay");
+    const archiveDeleteMessage = document.getElementById("archive-delete-message");
+    const archiveDeleteCancel = document.getElementById("archive-delete-cancel");
+    const archiveDeleteConfirmBtn = document.getElementById("archive-delete-confirm");
+    let archiveDeletePending = null; // { kind, index }
+
+    function openArchiveDeleteModal(kind, index, title) {
+      archiveDeletePending = { kind: kind, index: index };
+      archiveDeleteMessage.textContent =
+        "\"" + (title || "(제목 없음)") + "\"을(를) 삭제하시겠어요? 기록이 모두 사라져요.";
+      archiveDeleteOverlay.classList.add("visible");
+    }
+
+    function closeArchiveDeleteModal() {
+      archiveDeletePending = null;
+      archiveDeleteOverlay.classList.remove("visible");
+    }
+
+    archiveDeleteCancel.addEventListener("click", closeArchiveDeleteModal);
+
+    archiveDeleteOverlay.addEventListener("click", function (event) {
+      if (event.target === archiveDeleteOverlay) closeArchiveDeleteModal();
+    });
+
+    archiveDeleteConfirmBtn.addEventListener("click", function () {
+      if (!archiveDeletePending) return;
+      const kind = archiveDeletePending.kind;
+      const index = archiveDeletePending.index;
+      const list = kind === "material" ? materials : readingBooks;
+      const save = kind === "material" ? saveMaterials : saveReadingBooks;
+
+      const removedItem = list[index];
+      list.splice(index, 1);
+      save();
+      closeArchiveDeleteModal();
+      renderArchiveList();
+
+      showUndoToast((kind === "material" ? "학습 자료를" : "책을") + " 삭제했어요.", function () {
+        list.splice(index, 0, removedItem);
+        save();
+        renderArchiveList();
+      });
+    });
 
     // ---- 독서 기록 보기 모달 (GitHub 잔디 스타일 농도 히트맵 + 책별 아코디언 + 전체 합산 + 스트릭) ----
     const readingHistoryBtn = document.getElementById("reading-history-btn");
