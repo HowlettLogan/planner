@@ -1299,6 +1299,12 @@
       border-radius: 50%;
     }
 
+    .day-monitor-legend-btn {
+      border: none;
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
+
     .material-item {
       display: flex;
       flex-direction: column;
@@ -2008,9 +2014,10 @@
         <!-- 하루 모니터링: 체크 여부와 상관없이, 그 날 세운 계획을 카테고리별로 한 막대에 시각화 -->
         <div class="card" id="day-monitor-card">
           <div id="day-monitor-legend" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
-          <div class="stats-bar-track">
-            <div class="stats-bar" id="day-monitor-bar"></div>
+          <div class="stats-bar-track" style="flex:none; height:16px; min-height:16px; max-height:16px;">
+            <div class="stats-bar" id="day-monitor-bar" style="height:16px;"></div>
           </div>
+          <div id="day-monitor-detail"></div>
         </div>
 
         <!-- 학습 자료 진행률: 자리만 -->
@@ -2799,10 +2806,55 @@
     // ---- 하루 모니터링 (체크 여부와 상관없이, 그 날 세운 계획을 카테고리별로 한 막대에 시각화) ----
     const dayMonitorBar = document.getElementById("day-monitor-bar");
     const dayMonitorLegend = document.getElementById("day-monitor-legend");
+    const dayMonitorDetail = document.getElementById("day-monitor-detail");
+    // 범례를 눌러서 펼친 카테고리 (한 번에 하나만 — 다른 걸 누르면 이전 건 닫힘)
+    let activeMonitorCategory = null;
+
+    // hex 색을 HSL로 변환 (소분류 색 구분을 위해 색조/명도를 조작하려고)
+    function hexToHsl(hex) {
+      hex = hex.replace("#", "");
+      if (hex.length === 3) hex = hex.split("").map(function (c) { return c + c; }).join("");
+      const r = parseInt(hex.substr(0, 2), 16) / 255;
+      const g = parseInt(hex.substr(2, 2), 16) / 255;
+      const b = parseInt(hex.substr(4, 2), 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+      const d = max - min;
+      if (d !== 0) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+      }
+      return { h: h, s: s * 100, l: l * 100 };
+    }
+
+    // 소분류마다 색조를 살짝씩 돌리고(번갈아 +/-) 명도를 조금씩 올림 (단, 너무 흐려지지 않게 상한선을 둠)
+    const SUB_SHADE_MAX_LIGHTNESS = 80; // 이보다는 안 밝아짐 (배경이랑 구분 안 될 정도로 흐려지는 것 방지)
+    const SUB_SHADE_HUE_STEP = 10; // 색조 회전 폭
+    const SUB_SHADE_LIGHTNESS_STEP = 8; // 인덱스당 밝아지는 정도
+
+    function subShadeHsl(baseHex, index) {
+      const base = hexToHsl(baseHex);
+      const dir = index % 2 === 0 ? 1 : -1;
+      const step = Math.ceil(index / 2);
+      const hue = (base.h + dir * step * SUB_SHADE_HUE_STEP + 360) % 360;
+      const lightness = Math.min(SUB_SHADE_MAX_LIGHTNESS, base.l + index * SUB_SHADE_LIGHTNESS_STEP);
+      return { h: hue, s: base.s, l: lightness };
+    }
+
+    function subShadeColor(baseHex, index, alpha) {
+      const hsl = subShadeHsl(baseHex, index);
+      const a = alpha === undefined ? 1 : alpha;
+      return "hsl(" + hsl.h.toFixed(0) + " " + hsl.s.toFixed(0) + "% " + hsl.l.toFixed(0) + "% / " + a + ")";
+    }
 
     function renderDayMonitor() {
       dayMonitorBar.innerHTML = "";
       dayMonitorLegend.innerHTML = "";
+      dayMonitorDetail.innerHTML = "";
 
       const durations = getItemDurations(schedule);
       const totals = {};
@@ -2814,7 +2866,15 @@
         grandTotal += d.minutes / 60;
       });
 
-      if (grandTotal === 0) return; // 계획된 일정이 없으면 빈 막대만 남김
+      if (grandTotal === 0) {
+        activeMonitorCategory = null;
+        return; // 계획된 일정이 없으면 빈 막대만 남김
+      }
+
+      // 날짜를 옮겼는데 펼쳐둔 카테고리가 그 날엔 없으면 자동으로 접어둠
+      if (activeMonitorCategory && !totals[activeMonitorCategory]) {
+        activeMonitorCategory = null;
+      }
 
       categories.forEach(function (cat) {
         const hours = totals[cat.name];
@@ -2828,10 +2888,15 @@
         segment.textContent = formatHours(hours) + "h";
         dayMonitorBar.appendChild(segment);
 
-        const legendItem = document.createElement("div");
-        legendItem.className = "stats-legend-item";
+        const isActive = activeMonitorCategory === cat.name;
+        const legendItem = document.createElement("button");
+        legendItem.type = "button";
+        legendItem.className = "stats-legend-item day-monitor-legend-btn" + (isActive ? " active" : "");
         legendItem.style.background = cat.color + "47";
         legendItem.style.color = "var(--text)";
+        if (isActive) {
+          legendItem.style.boxShadow = "0 0 0 2px " + cat.color;
+        }
 
         const dot = document.createElement("span");
         dot.className = "stats-legend-dot";
@@ -2842,8 +2907,93 @@
 
         legendItem.appendChild(dot);
         legendItem.appendChild(label);
+        legendItem.addEventListener("click", function () {
+          activeMonitorCategory = isActive ? null : cat.name;
+          renderDayMonitor();
+        });
         dayMonitorLegend.appendChild(legendItem);
       });
+
+      if (activeMonitorCategory) {
+        renderDayMonitorDetail(activeMonitorCategory, durations);
+      }
+    }
+
+    // 펼쳐진 카테고리의 소분류별 비율을 같은 스타일의 막대 하나로 아래에 그려줌
+    function renderDayMonitorDetail(categoryName, durations) {
+      const cat = categories.find(function (c) { return c.name === categoryName; });
+      if (!cat) return;
+
+      const subTotals = {};
+      let subGrandTotal = 0;
+      durations.forEach(function (d) {
+        if (d.item.category !== categoryName || d.minutes === 0) return;
+        const subName = d.item.subcategory || "(미분류)";
+        subTotals[subName] = (subTotals[subName] || 0) + d.minutes / 60;
+        subGrandTotal += d.minutes / 60;
+      });
+
+      if (subGrandTotal === 0) return;
+
+      // 순서는 설정에 등록된 소분류 순서를 그대로 따르고, 미분류가 있으면 맨 뒤에 붙임
+      const orderedSubNames = (cat.subcategories || []).filter(function (s) { return subTotals[s]; });
+      if (subTotals["(미분류)"]) orderedSubNames.push("(미분류)");
+
+      const wrap = document.createElement("div");
+      wrap.style.marginTop = "6px";
+      wrap.style.paddingTop = "6px";
+      wrap.style.borderTop = "1px solid var(--border)";
+
+      const subLegend = document.createElement("div");
+      subLegend.style.display = "flex";
+      subLegend.style.gap = "10px";
+      subLegend.style.flexWrap = "wrap";
+      subLegend.style.marginTop = "10px";
+
+      const track = document.createElement("div");
+      track.className = "stats-bar-track";
+      track.style.flex = "none";
+      track.style.height = "16px";
+      track.style.minHeight = "16px";
+      track.style.maxHeight = "16px";
+      const bar = document.createElement("div");
+      bar.className = "stats-bar";
+      bar.style.height = "16px";
+      track.appendChild(bar);
+
+      orderedSubNames.forEach(function (subName, i) {
+        const hours = subTotals[subName];
+        const shade = subShadeColor(cat.color, i);
+
+        const segment = document.createElement("div");
+        segment.className = "stats-bar-segment";
+        segment.style.width = (hours / subGrandTotal * 100) + "%";
+        segment.style.background = shade;
+        segment.style.color = "#000";
+        segment.textContent = formatHours(hours) + "h";
+        bar.appendChild(segment);
+
+        const legendItem = document.createElement("div");
+        legendItem.className = "stats-legend-item";
+        legendItem.style.background = subShadeColor(cat.color, i, 0.28);
+        legendItem.style.color = "var(--text)";
+
+        const dot = document.createElement("span");
+        dot.className = "stats-legend-dot";
+        dot.style.background = shade;
+
+        const label = document.createElement("span");
+        // 이 카테고리에 소분류 자체가 하나도 없으면 "(미분류)" 대신 카테고리 이름을 그대로 보여줌
+        label.textContent = (subName === "(미분류)" && (cat.subcategories || []).length === 0) ? cat.name : subName;
+
+        legendItem.appendChild(dot);
+        legendItem.appendChild(label);
+        subLegend.appendChild(legendItem);
+      });
+
+      wrap.appendChild(track);
+      wrap.appendChild(subLegend);
+      dayMonitorDetail.appendChild(wrap);
     }
 
     // scheduleSortKey와 같은 기준(0~4시는 24~28시로 취급)으로 "자정부터 몇 분째인지" 계산
