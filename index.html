@@ -2885,7 +2885,7 @@
         segment.style.width = (hours / grandTotal * 100) + "%";
         segment.style.background = cat.color;
         segment.style.color = "#000";
-        segment.textContent = formatHours(hours) + "h";
+        segment.textContent = formatMinutesLabel(hours);
         dayMonitorBar.appendChild(segment);
 
         const isActive = activeMonitorCategory === cat.name;
@@ -2970,7 +2970,7 @@
         segment.style.width = (hours / subGrandTotal * 100) + "%";
         segment.style.background = shade;
         segment.style.color = "#000";
-        segment.textContent = formatHours(hours) + "h";
+        segment.textContent = formatMinutesLabel(hours);
         bar.appendChild(segment);
 
         const legendItem = document.createElement("div");
@@ -3015,9 +3015,9 @@
     }
 
     // 소수점 시간을 화면에 보기 좋게(소수점 1자리까지만) 표시
-    function formatHours(h) {
-      const rounded = Math.round(h * 10) / 10;
-      return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1);
+    // 막대 세그먼트 안에 표시할 라벨: 시간(h) 값을 분 단위로 바꿔서 "N분"으로 보여줌
+    function formatMinutesLabel(h) {
+      return Math.round(h * 60) + "분";
     }
 
     // 대분류(item.category)별로, 다음 일정까지의 실제 시간(분→시간)을 합산
@@ -3151,7 +3151,7 @@
             segment.style.width = (hours / totalHours * 100) + "%";
             segment.style.background = cat.color;
             segment.style.color = "#000";
-            segment.textContent = formatHours(hours) + "h";
+            segment.textContent = formatMinutesLabel(hours);
             bar.appendChild(segment);
           });
         }
@@ -3383,7 +3383,7 @@
           segment.style.width = "100%";
           segment.style.background = cat.color;
           segment.style.color = "#000";
-          segment.textContent = formatHours(s.hours) + "h";
+          segment.textContent = formatMinutesLabel(s.hours);
           bar.appendChild(segment);
         }
 
