@@ -3544,6 +3544,8 @@
       });
 
       subcategoryLineChart.appendChild(svg);
+      // 기본으로 스크롤을 오른쪽 끝(가장 최근 날짜)에 맞춰서, 오늘 기준으로 보이게 함
+      subcategoryLineChart.scrollLeft = subcategoryLineChart.scrollWidth;
 
       cat.subcategories.forEach(function (subName, subIndex) {
         const isHidden = !!hiddenLineSubcats[subName];
