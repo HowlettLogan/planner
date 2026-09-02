@@ -2116,8 +2116,8 @@
       </div>
       <div id="subcategory-select-row" style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;"></div>
       <div id="subcategory-stats-rows" style="display:flex; flex-direction:column; gap:20px; margin-top:12px;"></div>
-      <div class="setting-hint" style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">추이 (최근 7개 구간)</div>
-      <div id="subcategory-line-chart" style="margin-top:8px;"></div>
+      <div class="setting-hint" style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px;" id="subcategory-line-title">추이</div>
+      <div id="subcategory-line-chart" style="margin-top:8px; overflow-x:auto;"></div>
       <div id="subcategory-line-legend" style="display:flex; gap:14px; flex-wrap:wrap; margin-top:8px;"></div>
     </div>
   </div>
@@ -2320,8 +2320,14 @@
     function renderWeek() {
       weekGrid.innerHTML = "";
 
-      const weekNumber = Math.ceil(weekAnchor.getDate() / 7);
-      weekLabel.textContent = (weekAnchor.getMonth() + 1) + "월 " + weekOrdinals[weekNumber - 1] + " 주";
+      // "오늘"이 포함된 주를 보고 있으면, 라벨은 그 주의 월요일이 아니라 실제 "오늘" 날짜 기준으로 계산함
+      // → 오늘이 아직 이전 달이면 이전 달로, 날짜가 지나 오늘이 다음 달로 넘어가면 그 시점부터 자동으로 다음 달 표기로 바뀜
+      // (오늘이 포함 안 된, 과거/미래로 이동해서 보는 주는 그 주의 월요일 기준 그대로 계산)
+      const weekEnd = addDays(weekAnchor, 6);
+      const containsToday = today >= weekAnchor && today <= weekEnd;
+      const weekRefDate = containsToday ? today : weekAnchor;
+      const weekNumber = Math.ceil(weekRefDate.getDate() / 7);
+      weekLabel.textContent = (weekRefDate.getMonth() + 1) + "월 " + weekOrdinals[weekNumber - 1] + " 주";
 
       for (let i = 0; i < 7; i++) {
         const date = addDays(weekAnchor, i);
@@ -2342,6 +2348,7 @@
           selectedDate = new Date(date);
           loadAndRenderSchedule();
           loadAndRenderDailyTodos();
+          renderHabits();
           renderWeek();
         });
 
@@ -2442,6 +2449,7 @@
       renderWeek();
       loadAndRenderSchedule();
       loadAndRenderDailyTodos();
+      renderHabits();
     });
 
     // ---- 오늘 일정 (선택된 날짜) 패널 ----
@@ -3394,9 +3402,10 @@
       });
     }
 
-    // ---- 추이 선 그래프 (최근 7개 구간, subcatNavAnchor 기준) ----
+    // ---- 추이 선 그래프 (일별 30개/주별 4개/월별 4개, subcatNavAnchor 기준) ----
     const subcategoryLineChart = document.getElementById("subcategory-line-chart");
     const subcategoryLineLegend = document.getElementById("subcategory-line-legend");
+    const subcategoryLineTitle = document.getElementById("subcategory-line-title");
     // 소분류는 대분류 색을 그대로 쓰기 때문에, 선 종류(점선 패턴)로 구분함
     const lineDashPatterns = ["none", "6,4", "2,3", "8,3,2,3", "1,2"];
     // 범례 클릭으로 껐다 켠 소분류들을 기억해둠 (이름 기준)
@@ -3429,8 +3438,9 @@
         }
         return rows;
       }
+      // 일별 모드: 최근 30일치를 다 보여줌 (가로 스크롤로 넘겨보는 걸 전제로 함)
       const rows = [];
-      for (let i = 6; i >= 0; i--) {
+      for (let i = 29; i >= 0; i--) {
         const date = addDays(subcatNavAnchor, -i);
         rows.push({ label: (date.getMonth() + 1) + "/" + date.getDate(), totals: tallyFn(loadScheduleFor(date)) });
       }
@@ -3441,6 +3451,11 @@
       subcategoryLineChart.innerHTML = "";
       subcategoryLineLegend.innerHTML = "";
 
+      subcategoryLineTitle.textContent =
+        subcatStatsViewMode === "weekly" ? "추이 (최근 4주)" :
+        subcatStatsViewMode === "monthly" ? "추이 (최근 4개월)" :
+        "추이 (최근 30일)";
+
       if (cat.subcategories.length === 0) return;
 
       const tallyFn = function (items) {
@@ -3449,13 +3464,16 @@
       const rows = getSubcatTrendRows(tallyFn);
 
       const svgNS = "http://www.w3.org/2000/svg";
-      const width = 640;
-      const height = 190;
+      // 점 간격은 예전 7개짜리 그래프와 완전히 같게 유지 (640px 폭을 7개 점 기준 6칸으로 나눈 값)
+      // 점이 늘어나면(최대 30개) 전체 폭이 그만큼 늘어나서 자연스럽게 가로 스크롤이 생김
+      const pointSpacing = (640 - 30 - 14) / 6;
       const padLeft = 30;
       const padRight = 14;
       const padTop = 14;
       const padBottom = 26;
-      const plotW = width - padLeft - padRight;
+      const plotW = Math.max(640 - padLeft - padRight, (rows.length - 1) * pointSpacing);
+      const width = plotW + padLeft + padRight;
+      const height = 190;
       const plotH = height - padTop - padBottom;
 
       let maxHours = 1;
@@ -3475,8 +3493,9 @@
 
       const svg = document.createElementNS(svgNS, "svg");
       svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-      svg.style.width = "100%";
+      svg.style.width = width + "px";
       svg.style.height = "190px";
+      svg.style.display = "block";
 
       const axis = document.createElementNS(svgNS, "line");
       axis.setAttribute("x1", padLeft);
@@ -3906,8 +3925,10 @@
       return streak;
     }
 
-    function toggleHabitToday(index) {
-      const key = formatDateKey(today);
+    // "오늘"이 아니라, 주간 플래너에서 지금 선택 중인 날짜(selectedDate) 기준으로 체크/해제함
+    // (오늘 할 일 블록과 동일한 방식 — 지난 날짜를 선택해서 소급 체크하면 스트릭 계산에도 그대로 반영됨)
+    function toggleHabitForSelectedDate(index) {
+      const key = formatDateKey(selectedDate);
       const pos = habits[index].completedDates.indexOf(key);
       if (pos === -1) {
         habits[index].completedDates.push(key);
@@ -3966,21 +3987,21 @@
 
         const checkbox = document.createElement("div");
         checkbox.className = "habit-checkbox";
-        const doneToday = habit.completedDates.indexOf(formatDateKey(today)) !== -1;
-        if (doneToday) {
+        const doneOnSelectedDate = habit.completedDates.indexOf(formatDateKey(selectedDate)) !== -1;
+        if (doneOnSelectedDate) {
           checkbox.style.background = habit.color;
           checkbox.style.borderColor = habit.color;
           checkbox.textContent = "✓";
         }
         checkbox.addEventListener("click", function () {
-          toggleHabitToday(index);
+          toggleHabitForSelectedDate(index);
         });
 
         const name = document.createElement("input");
         name.className = "habit-name";
         name.placeholder = "습관 이름";
         name.value = habit.name;
-        if (doneToday) {
+        if (doneOnSelectedDate) {
           name.style.textDecoration = "line-through";
           name.style.opacity = "0.4";
         }
