@@ -2018,6 +2018,14 @@
             <div class="stats-bar" id="day-monitor-bar" style="height:16px;"></div>
           </div>
           <div id="day-monitor-detail"></div>
+
+          <!-- 카테고리와 무관하게, 하루 전체 일정이 완료/못함/아직 중 어디에 해당하는지 시간량으로 보여줌 -->
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+            <div class="stats-bar-track" style="flex:none; height:16px; min-height:16px; max-height:16px;">
+              <div class="stats-bar" id="day-monitor-status-bar" style="height:16px;"></div>
+            </div>
+            <div id="day-monitor-status-legend" style="display:flex; gap:14px; flex-wrap:wrap; margin-top:8px;"></div>
+          </div>
         </div>
 
         <!-- 학습 자료 진행률: 자리만 -->
@@ -2859,12 +2867,69 @@
       return "hsl(" + hsl.h.toFixed(0) + " " + hsl.s.toFixed(0) + "% " + hsl.l.toFixed(0) + "% / " + a + ")";
     }
 
+    const dayMonitorStatusBar = document.getElementById("day-monitor-status-bar");
+    const dayMonitorStatusLegend = document.getElementById("day-monitor-status-legend");
+
+    // 카테고리와 무관하게, 하루 전체 일정을 완료/못함/아직(빈칸) 세 구간으로 나눠서 시간량으로 보여줌
+    function renderDayMonitorStatus(durations) {
+      dayMonitorStatusBar.innerHTML = "";
+      dayMonitorStatusLegend.innerHTML = "";
+
+      let doneMin = 0, skippedMin = 0, todoMin = 0, total = 0;
+      durations.forEach(function (d) {
+        if (d.item.isRest || d.minutes === 0) return; // 휴식 블록은 "공부"가 아니므로 제외
+        total += d.minutes;
+        if (d.item.status === "done") doneMin += d.minutes;
+        else if (d.item.status === "skipped") skippedMin += d.minutes;
+        else todoMin += d.minutes;
+      });
+
+      if (total === 0) return;
+
+      const segments = [
+        { label: "완료", minutes: doneMin, color: "var(--blue)", textColor: "#fff" },
+        { label: "못함", minutes: skippedMin, color: "#d64545", textColor: "#fff" },
+        { label: "아직", minutes: todoMin, color: "var(--border)", textColor: "var(--text)" }
+      ];
+
+      segments.forEach(function (seg) {
+        if (seg.minutes === 0) return;
+
+        const segment = document.createElement("div");
+        segment.className = "stats-bar-segment";
+        segment.style.width = (seg.minutes / total * 100) + "%";
+        segment.style.background = seg.color;
+        segment.style.color = seg.textColor;
+        segment.textContent = Math.round(seg.minutes) + "분";
+        dayMonitorStatusBar.appendChild(segment);
+
+        const legendItem = document.createElement("span");
+        legendItem.style.display = "flex";
+        legendItem.style.alignItems = "center";
+        legendItem.style.gap = "6px";
+        legendItem.style.font = "600 12px system-ui, sans-serif";
+
+        const dot = document.createElement("span");
+        dot.className = "stats-legend-dot";
+        dot.style.background = seg.color;
+
+        const label = document.createElement("span");
+        label.textContent = seg.label;
+
+        legendItem.appendChild(dot);
+        legendItem.appendChild(label);
+        dayMonitorStatusLegend.appendChild(legendItem);
+      });
+    }
+
     function renderDayMonitor() {
       dayMonitorBar.innerHTML = "";
       dayMonitorLegend.innerHTML = "";
       dayMonitorDetail.innerHTML = "";
 
       const durations = getItemDurations(schedule);
+      renderDayMonitorStatus(durations);
+
       const totals = {};
       let grandTotal = 0;
 
@@ -2879,9 +2944,14 @@
         return; // 계획된 일정이 없으면 빈 막대만 남김
       }
 
-      // 날짜를 옮겼는데 펼쳐둔 카테고리가 그 날엔 없으면 자동으로 접어둠
+      // 날짜를 옮겼는데 펼쳐둔 카테고리가 그 날엔 없으면, 다시 골라야 하니 일단 비워둠(아래에서 첫 번째 카테고리로 다시 채워짐)
       if (activeMonitorCategory && !totals[activeMonitorCategory]) {
         activeMonitorCategory = null;
+      }
+      // 하위 막대는 항상 뭔가 하나는 보여줘야 하므로, 아직 아무것도 선택 안 됐으면 그 날 계획에 있는 첫 번째 카테고리를 기본으로 보여줌
+      if (!activeMonitorCategory) {
+        const firstWithHours = categories.find(function (cat) { return totals[cat.name]; });
+        if (firstWithHours) activeMonitorCategory = firstWithHours.name;
       }
 
       categories.forEach(function (cat) {
@@ -2916,7 +2986,8 @@
         legendItem.appendChild(dot);
         legendItem.appendChild(label);
         legendItem.addEventListener("click", function () {
-          activeMonitorCategory = isActive ? null : cat.name;
+          // 껐다 켜는 토글이 아니라, 항상 이 카테고리로 "전환"만 함 (같은 걸 눌러도 계속 켜진 채로 유지)
+          activeMonitorCategory = cat.name;
           renderDayMonitor();
         });
         dayMonitorLegend.appendChild(legendItem);
