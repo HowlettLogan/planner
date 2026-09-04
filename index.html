@@ -2871,13 +2871,24 @@
     const dayMonitorStatusLegend = document.getElementById("day-monitor-status-legend");
 
     // 카테고리와 무관하게, 하루 전체 일정을 완료/못함/아직(빈칸) 세 구간으로 나눠서 시간량으로 보여줌
+    // 60분이 넘으면 "1시간10분", 정각이면 "1시간", 그 밑이면 "N분" — 이 그래프(완료/못함/아직)에서만 씀
+    function formatMinutesAsHourMin(min) {
+      const rounded = Math.round(min);
+      const h = Math.floor(rounded / 60);
+      const m = rounded % 60;
+      if (h === 0) return m + "분";
+      if (m === 0) return h + "시간";
+      return h + "시간" + m + "분";
+    }
+
     function renderDayMonitorStatus(durations) {
       dayMonitorStatusBar.innerHTML = "";
       dayMonitorStatusLegend.innerHTML = "";
 
       let doneMin = 0, skippedMin = 0, todoMin = 0, total = 0;
       durations.forEach(function (d) {
-        if (d.item.isRest || d.minutes === 0) return; // 휴식 블록은 "공부"가 아니므로 제외
+        // 카테고리가 지정된 일정만 집계 (휴식 블록·미분류 제외 — 위쪽 메인 막대와 동일한 기준)
+        if (!d.item.category || d.item.isRest || d.minutes === 0) return;
         total += d.minutes;
         if (d.item.status === "done") doneMin += d.minutes;
         else if (d.item.status === "skipped") skippedMin += d.minutes;
@@ -2900,7 +2911,7 @@
         segment.style.width = (seg.minutes / total * 100) + "%";
         segment.style.background = seg.color;
         segment.style.color = seg.textColor;
-        segment.textContent = Math.round(seg.minutes) + "분";
+        segment.textContent = formatMinutesAsHourMin(seg.minutes);
         dayMonitorStatusBar.appendChild(segment);
 
         const legendItem = document.createElement("span");
