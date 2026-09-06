@@ -2870,17 +2870,6 @@
     const dayMonitorStatusBar = document.getElementById("day-monitor-status-bar");
     const dayMonitorStatusLegend = document.getElementById("day-monitor-status-legend");
 
-    // 카테고리와 무관하게, 하루 전체 일정을 완료/못함/아직(빈칸) 세 구간으로 나눠서 시간량으로 보여줌
-    // 60분이 넘으면 "1시간10분", 정각이면 "1시간", 그 밑이면 "N분" — 이 그래프(완료/못함/아직)에서만 씀
-    function formatMinutesAsHourMin(min) {
-      const rounded = Math.round(min);
-      const h = Math.floor(rounded / 60);
-      const m = rounded % 60;
-      if (h === 0) return m + "분";
-      if (m === 0) return h + "시간";
-      return h + "시간" + m + "분";
-    }
-
     function renderDayMonitorStatus(durations) {
       dayMonitorStatusBar.innerHTML = "";
       dayMonitorStatusLegend.innerHTML = "";
@@ -2911,7 +2900,7 @@
         segment.style.width = (seg.minutes / total * 100) + "%";
         segment.style.background = seg.color;
         segment.style.color = seg.textColor;
-        segment.textContent = formatMinutesAsHourMin(seg.minutes);
+        segment.textContent = formatMinutesLabel(seg.minutes / 60);
         dayMonitorStatusBar.appendChild(segment);
 
         const legendItem = document.createElement("span");
@@ -3104,10 +3093,14 @@
       return pad2(h) + ":" + pad2(m);
     }
 
-    // 소수점 시간을 화면에 보기 좋게(소수점 1자리까지만) 표시
-    // 막대 세그먼트 안에 표시할 라벨: 시간(h) 값을 분 단위로 바꿔서 "N분"으로 보여줌
+    // 막대 세그먼트 안에 표시할 라벨: 시간(h) 값을 "3h30m" 형식으로 보여줌 (시간만/분만 있으면 그것만 표시)
     function formatMinutesLabel(h) {
-      return Math.round(h * 60) + "분";
+      const totalMin = Math.round(h * 60);
+      const hh = Math.floor(totalMin / 60);
+      const mm = totalMin % 60;
+      if (hh === 0) return mm + "m";
+      if (mm === 0) return hh + "h";
+      return hh + "h" + mm + "m";
     }
 
     // 대분류(item.category)별로, 다음 일정까지의 실제 시간(분→시간)을 합산
